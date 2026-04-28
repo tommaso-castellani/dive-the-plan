@@ -8,6 +8,7 @@ import {
   Bot,
   CheckSquare,
   File,
+  Gauge,
   Loader2,
   ReceiptText,
   Shield,
@@ -88,6 +89,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: 'Documents',
         url: `${orgPrefix}/documents`,
         icon: File,
+      },
+      {
+        title: 'Gas Planner',
+        url: `${orgPrefix}/gas-planner`,
+        icon: Gauge,
       },
       {
         title: 'Assistant',
