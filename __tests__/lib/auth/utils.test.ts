@@ -153,10 +153,10 @@ describe('Auth Utils', () => {
           vi.stubEnv('NODE_ENV', 'development');
         });
 
-        it('should return true for emails matching seed pattern (+kosuke_test@example.com)', () => {
-          expect(isTestEmail('john+kosuke_test@example.com')).toBe(true);
-          expect(isTestEmail('jane+kosuke_test@example.com')).toBe(true);
-          expect(isTestEmail('admin+kosuke_test@example.com')).toBe(true);
+        it('should return true for emails matching seed pattern (+dive_the_plan@example.com)', () => {
+          expect(isTestEmail('john+dive_the_plan@example.com')).toBe(true);
+          expect(isTestEmail('jane+dive_the_plan@example.com')).toBe(true);
+          expect(isTestEmail('admin+dive_the_plan@example.com')).toBe(true);
         });
 
         it('should return false for emails not matching the pattern', () => {
@@ -166,25 +166,25 @@ describe('Auth Utils', () => {
         });
 
         it('should return false for partial pattern matches', () => {
-          expect(isTestEmail('kosuke_test@example.com')).toBe(false); // Missing '+'
-          expect(isTestEmail('john+kosuke_test@other.com')).toBe(false); // Wrong domain
-          expect(isTestEmail('john+kosuke')).toBe(false); // Incomplete suffix
+          expect(isTestEmail('dive_the_plan@example.com')).toBe(false); // Missing '+'
+          expect(isTestEmail('john+dive_the_plan@other.com')).toBe(false); // Wrong domain
+          expect(isTestEmail('john+dive_the')).toBe(false); // Incomplete suffix
         });
 
         it('should be case-sensitive', () => {
-          expect(isTestEmail('john+KOSUKE_TEST@example.com')).toBe(false);
-          expect(isTestEmail('john+kosuke_test@EXAMPLE.COM')).toBe(false);
+          expect(isTestEmail('john+DIVE_THE_PLAN@example.com')).toBe(false);
+          expect(isTestEmail('john+dive_the_plan@EXAMPLE.COM')).toBe(false);
         });
 
         it('should handle edge cases', () => {
           expect(isTestEmail('')).toBe(false);
-          expect(isTestEmail('+kosuke_test@example.com')).toBe(true); // Valid - ends with suffix
-          expect(isTestEmail('user+kosuke_test')).toBe(false); // Missing domain
+          expect(isTestEmail('+dive_the_plan@example.com')).toBe(true); // Valid - ends with suffix
+          expect(isTestEmail('user+dive_the_plan')).toBe(false); // Missing domain
         });
 
         it('should handle emails with multiple plus signs', () => {
-          expect(isTestEmail('user+tag+kosuke_test@example.com')).toBe(true);
-          expect(isTestEmail('user++kosuke_test@example.com')).toBe(true);
+          expect(isTestEmail('user+tag+dive_the_plan@example.com')).toBe(true);
+          expect(isTestEmail('user++dive_the_plan@example.com')).toBe(true);
         });
       });
 
@@ -194,8 +194,8 @@ describe('Auth Utils', () => {
         });
 
         it('should return false for test pattern emails in production', () => {
-          expect(isTestEmail('john+kosuke_test@example.com')).toBe(false);
-          expect(isTestEmail('jane+kosuke_test@example.com')).toBe(false);
+          expect(isTestEmail('john+dive_the_plan@example.com')).toBe(false);
+          expect(isTestEmail('jane+dive_the_plan@example.com')).toBe(false);
         });
 
         it('should return false for any email in production', () => {
