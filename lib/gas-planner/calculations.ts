@@ -39,17 +39,17 @@ const METERS_PER_BAR = 10;
 // ---------------------------------------------------------------------------
 
 /** Convert depth (m) to absolute pressure (bar). Surface = 1 bar. */
-export function depthToAbsPressure(depthMeters: number): number {
+function depthToAbsPressure(depthMeters: number): number {
   return depthMeters / METERS_PER_BAR + 1;
 }
 
 /** Convert absolute pressure (bar) back to depth (m). */
-export function absPressureToDepth(pressureBar: number): number {
+function absPressureToDepth(pressureBar: number): number {
   return (pressureBar - 1) * METERS_PER_BAR;
 }
 
 /** Convert Celsius to Kelvin. */
-export function celsiusToKelvin(c: number): number {
+function celsiusToKelvin(c: number): number {
   return c + 273.15;
 }
 
@@ -57,13 +57,13 @@ export function celsiusToKelvin(c: number): number {
 // PARTIAL PRESSURES
 // ---------------------------------------------------------------------------
 
-export interface GasFractions {
+interface GasFractions {
   fO2: number;
   fHe: number;
   fN2: number;
 }
 
-export interface PartialPressures {
+interface PartialPressures {
   ppO2: number;
   ppHe: number;
   ppN2: number;
@@ -73,7 +73,7 @@ export interface PartialPressures {
  * Compute partial pressures of each gas component at a given depth.
  * pp_i = f_i * P_abs
  */
-export function calculatePartialPressures(
+function calculatePartialPressures(
   fractions: GasFractions,
   depthMeters: number
 ): PartialPressures {
@@ -94,7 +94,7 @@ export function calculatePartialPressures(
  *   ρ(T, P) = ρ_stp * P * (T_stp / T)
  * Mixture density is the mole-fraction weighted sum of component densities.
  */
-export function calculateGasDensity(
+function calculateGasDensity(
   fractions: GasFractions,
   depthMeters: number,
   waterTempCelsius: number
@@ -122,7 +122,7 @@ export function calculateGasDensity(
  * This is the standard technical-diving formulation also used by Subsurface,
  * MultiDeco, and most blending calculators.
  */
-export function calculateEND(fHe: number, depthMeters: number): number {
+function calculateEND(fHe: number, depthMeters: number): number {
   const end = (depthMeters + METERS_PER_BAR) * (1 - fHe) - METERS_PER_BAR;
   return Math.max(0, end);
 }
@@ -135,7 +135,7 @@ export function calculateEND(fHe: number, depthMeters: number): number {
  * Maximum Operating Depth from a ppO2 limit.
  *   MOD = (ppO2_limit / fO2 - 1) * 10
  */
-export function calculateMODByPpO2(fO2: number, ppO2Limit: number): number {
+function calculateMODByPpO2(fO2: number, ppO2Limit: number): number {
   if (fO2 <= 0) return Infinity;
   return absPressureToDepth(ppO2Limit / fO2);
 }
@@ -144,7 +144,7 @@ export function calculateMODByPpO2(fO2: number, ppO2Limit: number): number {
  * Maximum Operating Depth from a target END (with the given fHe).
  *   MOD = (target_end + 10) / (1 - fHe) - 10
  */
-export function calculateMODByEND(fHe: number, targetENDMeters: number): number {
+function calculateMODByEND(fHe: number, targetENDMeters: number): number {
   if (fHe >= 1) return Infinity;
   return (targetENDMeters + METERS_PER_BAR) / (1 - fHe) - METERS_PER_BAR;
 }
@@ -155,7 +155,7 @@ export function calculateMODByEND(fHe: number, targetENDMeters: number): number 
  *   P_abs_max = ρ_max / (ρ_mix_stp * (T_stp / T))
  *   MOD      = (P_abs_max - 1) * 10
  */
-export function calculateMODByDensity(
+function calculateMODByDensity(
   fractions: GasFractions,
   densityLimitGramsPerLiter: number,
   waterTempCelsius: number
@@ -180,7 +180,7 @@ export function calculateMODByDensity(
 
 export type DivingMode = 'OC' | 'CCR';
 
-export interface BestMixInput {
+interface BestMixInput {
   mode: DivingMode;
   /** Target depth in meters */
   depth: number;
