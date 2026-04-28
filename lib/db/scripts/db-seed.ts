@@ -61,8 +61,8 @@ async function seed() {
   console.log('📌 Note: If you encounter duplicate key errors, run `bun run db:reset`');
   const stripe = await getStripe();
   try {
-    const janeSmithEmail = 'jane+kosuke_test@example.com';
-    const johnDoeEmail = 'john+kosuke_test@example.com';
+    const janeSmithEmail = 'jane+dive_the_plan@example.com';
+    const johnDoeEmail = 'john+dive_the_plan@example.com';
 
     console.log('� Creating users...');
 

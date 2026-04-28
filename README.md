@@ -312,8 +312,8 @@ bun run db:seed
 
 **Test Users Created:**
 
-- `jane+kosuke_test@example.com` - Admin of "Jane Smith Co." (Free tier)
-- `john+kosuke_test@example.com` - Admin of "John Doe Ltd." (Free tier), Member of "Jane Smith Co."
+- `jane+dive_the_plan@example.com` - Admin of "Jane Smith Co." (Free tier)
+- `john+dive_the_plan@example.com` - Admin of "John Doe Ltd." (Free tier), Member of "Jane Smith Co."
 
 **Kosuke Verification Code:**
 

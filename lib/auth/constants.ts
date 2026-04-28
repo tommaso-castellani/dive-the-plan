@@ -16,5 +16,5 @@ export const AUTH_ERRORS = {
   UNAUTHORIZED: 'Unauthorized',
 } as const;
 
-export const TEST_EMAIL_SUFFIX = '+kosuke_test@example.com';
+export const TEST_EMAIL_SUFFIX = '+dive_the_plan@example.com';
 export const TEST_OTP = '424242';
