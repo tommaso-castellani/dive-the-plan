@@ -1,6 +1,6 @@
 /**
  * Create Organization Dialog
- * Dialog for creating new workspaces from the sidebar
+ * Dialog for creating new organizations from the sidebar
  */
 
 'use client';
@@ -69,10 +69,10 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <DialogTitle>Create Workspace</DialogTitle>
+            <DialogTitle>Create Organization</DialogTitle>
           </div>
           <DialogDescription>
-            Create a new workspace to organize your projects and team.
+            Create a new organization to organize your projects and team.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -82,7 +82,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Workspace Name</FormLabel>
+                  <FormLabel>Organization Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Acme Inc." {...field} disabled={isCreating} autoFocus />
                   </FormControl>
@@ -110,7 +110,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
                     Creating...
                   </>
                 ) : (
-                  'Create Workspace'
+                  'Create Organization'
                 )}
               </Button>
             </div>

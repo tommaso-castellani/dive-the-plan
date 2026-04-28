@@ -81,7 +81,8 @@ export function SidebarOrgSwitcher() {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{activeOrganization.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {organizations.length} {organizations.length === 1 ? 'workspace' : 'workspaces'}
+                  {organizations.length}{' '}
+                  {organizations.length === 1 ? 'organization' : 'organizations'}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -94,7 +95,7 @@ export function SidebarOrgSwitcher() {
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Workspaces
+              Organizations
             </DropdownMenuLabel>
             {organizations.map((org) => {
               const orgInitials = getInitials(org.name);
@@ -129,7 +130,7 @@ export function SidebarOrgSwitcher() {
                     {isActive && (
                       <div
                         className="bg-primary h-2 w-2 rounded-full"
-                        aria-label="Active workspace"
+                        aria-label="Active organization"
                       />
                     )}
                   </Link>
@@ -151,7 +152,7 @@ export function SidebarOrgSwitcher() {
               className="cursor-pointer gap-2 p-2"
             >
               <Plus className="h-4 w-4" />
-              <span>Create Workspace</span>
+              <span>Create Organization</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -67,9 +67,9 @@ export default function OnboardingPage() {
     <div className="mx-4 flex flex-1 items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Create your workspace</CardTitle>
+          <CardTitle className="text-2xl">Create your organization</CardTitle>
           <CardDescription>
-            Let&apos;s get started by creating your first workspace. You can invite team members
+            Let&apos;s get started by creating your first organization. You can invite team members
             later.
           </CardDescription>
         </CardHeader>
@@ -81,7 +81,7 @@ export default function OnboardingPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Workspace Name</FormLabel>
+                    <FormLabel>Organization Name</FormLabel>
                     <FormControl>
                       <Input placeholder="Acme Inc." {...field} disabled={isSubmitting} autoFocus />
                     </FormControl>
@@ -97,10 +97,10 @@ export default function OnboardingPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="animate-spin" />
-                    Creating workspace...
+                    Creating organization...
                   </>
                 ) : (
-                  'Create Workspace'
+                  'Create Organization'
                 )}
               </Button>
             </form>

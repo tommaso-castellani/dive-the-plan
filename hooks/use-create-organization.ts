@@ -26,7 +26,7 @@ export function useCreateOrganization() {
     onSuccess: () => {
       toast({
         title: 'Success!',
-        description: 'Your workspace has been created.',
+        description: 'Your organization has been created.',
       });
       utils.organizations.getUserOrganizations.invalidate();
       refetch();
