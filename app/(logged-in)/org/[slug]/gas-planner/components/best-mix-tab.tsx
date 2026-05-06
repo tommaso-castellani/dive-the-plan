@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Calculator, Droplet, Gauge, Mountain, Thermometer, Waves, Wind } from 'lucide-react';
 
@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DEFAULTS = {
   OC: {
@@ -35,25 +34,27 @@ const DEFAULTS = {
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
 
-export function BestMixTab() {
-  const [mode, setMode] = useState<DivingMode>('OC');
-  const [depth, setDepth] = useState<number>(DEFAULTS.OC.depth);
-  const [ppO2, setPpO2] = useState<number>(DEFAULTS.OC.ppO2);
-  const [targetEND, setTargetEND] = useState<number>(DEFAULTS.OC.targetEND);
-  const [maxDensity, setMaxDensity] = useState<number>(DEFAULTS.OC.maxDensity);
+interface BestMixTabProps {
+  mode: DivingMode;
+}
+
+export function BestMixTab({ mode }: BestMixTabProps) {
+  const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
+  const [ppO2, setPpO2] = useState<number>(DEFAULTS[mode].ppO2);
+  const [targetEND, setTargetEND] = useState<number>(DEFAULTS[mode].targetEND);
+  const [maxDensity, setMaxDensity] = useState<number>(DEFAULTS[mode].maxDensity);
   const [waterTemp, setWaterTemp] = useState<number>(20);
   const [result, setResult] = useState<BestMixResult | null>(null);
 
-  const handleModeChange = (next: string) => {
-    if (next !== 'OC' && next !== 'CCR') return;
-    setMode(next);
-    const defaults = DEFAULTS[next];
+  // Reset inputs to mode-appropriate defaults whenever the parent toggles mode.
+  useEffect(() => {
+    const defaults = DEFAULTS[mode];
     setDepth(defaults.depth);
     setPpO2(defaults.ppO2);
     setTargetEND(defaults.targetEND);
     setMaxDensity(defaults.maxDensity);
     setResult(null);
-  };
+  }, [mode]);
 
   const handleCalculate = () => {
     const computed = calculateBestMix({
@@ -76,17 +77,6 @@ export function BestMixTab() {
           <p className="text-muted-foreground text-sm">Set your dive profile to compute the mix.</p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Mode toggle */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Mode</Label>
-            <Tabs value={mode} onValueChange={handleModeChange}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="OC">Open Circuit</TabsTrigger>
-                <TabsTrigger value="CCR">CCR</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
           {/* Depth */}
           <NumberField
             id="depth"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Calculator, Droplet, Gauge, Mountain, Thermometer, Waves, Wind } from 'lucide-react';
 
@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DEFAULTS = {
   OC: {
@@ -33,23 +32,25 @@ const DEFAULTS = {
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
 
-export function GasCheckTab() {
-  const [mode, setMode] = useState<DivingMode>('OC');
-  const [depth, setDepth] = useState<number>(DEFAULTS.OC.depth);
-  const [o2Percent, setO2Percent] = useState<number>(DEFAULTS.OC.o2Percent);
-  const [hePercent, setHePercent] = useState<number>(DEFAULTS.OC.hePercent);
+interface GasCheckTabProps {
+  mode: DivingMode;
+}
+
+export function GasCheckTab({ mode }: GasCheckTabProps) {
+  const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
+  const [o2Percent, setO2Percent] = useState<number>(DEFAULTS[mode].o2Percent);
+  const [hePercent, setHePercent] = useState<number>(DEFAULTS[mode].hePercent);
   const [waterTemp, setWaterTemp] = useState<number>(20);
   const [result, setResult] = useState<GasCheckResult | null>(null);
 
-  const handleModeChange = (next: string) => {
-    if (next !== 'OC' && next !== 'CCR') return;
-    setMode(next);
-    const defaults = DEFAULTS[next];
+  // Reset inputs to mode-appropriate defaults whenever the parent toggles mode.
+  useEffect(() => {
+    const defaults = DEFAULTS[mode];
     setDepth(defaults.depth);
     setO2Percent(defaults.o2Percent);
     setHePercent(defaults.hePercent);
     setResult(null);
-  };
+  }, [mode]);
 
   // Live N2 readout — clamp to non-negative so users get instant feedback if
   // they accidentally enter O2 + He > 100.
@@ -79,17 +80,6 @@ export function GasCheckTab() {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Mode toggle */}
-          <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Mode</Label>
-            <Tabs value={mode} onValueChange={handleModeChange}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="OC">Open Circuit</TabsTrigger>
-                <TabsTrigger value="CCR">CCR</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
           {/* O2 */}
           <NumberField
             id="o2"
