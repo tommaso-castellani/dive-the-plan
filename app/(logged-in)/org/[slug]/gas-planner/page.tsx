@@ -43,11 +43,13 @@ export default function GasPlannerPage() {
         </TabsList>
 
         <TabsContent value="best-mix">
-          <BestMixTab mode={mode} />
+          {/* `key={mode}` remounts the tab on OC/CCR switch so its state
+              re-initializes from mode-appropriate defaults. */}
+          <BestMixTab key={mode} mode={mode} />
         </TabsContent>
 
         <TabsContent value="gas-check">
-          <GasCheckTab mode={mode} />
+          <GasCheckTab key={mode} mode={mode} />
         </TabsContent>
 
         <TabsContent value="mod-check">

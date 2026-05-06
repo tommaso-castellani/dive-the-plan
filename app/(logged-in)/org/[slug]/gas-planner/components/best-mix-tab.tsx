@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Calculator, Droplet, Gauge, Mountain, Thermometer, Waves, Wind } from 'lucide-react';
 
@@ -38,6 +38,9 @@ interface BestMixTabProps {
   mode: DivingMode;
 }
 
+// Note: this component is remounted by the parent when `mode` changes (via
+// `key={mode}`), so initial state derived from `DEFAULTS[mode]` is sufficient
+// to keep inputs in sync with the selected mode — no effect needed.
 export function BestMixTab({ mode }: BestMixTabProps) {
   const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
   const [ppO2, setPpO2] = useState<number>(DEFAULTS[mode].ppO2);
@@ -45,16 +48,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
   const [maxDensity, setMaxDensity] = useState<number>(DEFAULTS[mode].maxDensity);
   const [waterTemp, setWaterTemp] = useState<number>(20);
   const [result, setResult] = useState<BestMixResult | null>(null);
-
-  // Reset inputs to mode-appropriate defaults whenever the parent toggles mode.
-  useEffect(() => {
-    const defaults = DEFAULTS[mode];
-    setDepth(defaults.depth);
-    setPpO2(defaults.ppO2);
-    setTargetEND(defaults.targetEND);
-    setMaxDensity(defaults.maxDensity);
-    setResult(null);
-  }, [mode]);
 
   const handleCalculate = () => {
     const computed = calculateBestMix({

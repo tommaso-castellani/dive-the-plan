@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Calculator, Droplet, Gauge, Mountain, Thermometer, Waves, Wind } from 'lucide-react';
 
@@ -36,21 +36,15 @@ interface GasCheckTabProps {
   mode: DivingMode;
 }
 
+// Note: this component is remounted by the parent when `mode` changes (via
+// `key={mode}`), so initial state derived from `DEFAULTS[mode]` is sufficient
+// to keep inputs in sync with the selected mode — no effect needed.
 export function GasCheckTab({ mode }: GasCheckTabProps) {
   const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
   const [o2Percent, setO2Percent] = useState<number>(DEFAULTS[mode].o2Percent);
   const [hePercent, setHePercent] = useState<number>(DEFAULTS[mode].hePercent);
   const [waterTemp, setWaterTemp] = useState<number>(20);
   const [result, setResult] = useState<GasCheckResult | null>(null);
-
-  // Reset inputs to mode-appropriate defaults whenever the parent toggles mode.
-  useEffect(() => {
-    const defaults = DEFAULTS[mode];
-    setDepth(defaults.depth);
-    setO2Percent(defaults.o2Percent);
-    setHePercent(defaults.hePercent);
-    setResult(null);
-  }, [mode]);
 
   // Live N2 readout — clamp to non-negative so users get instant feedback if
   // they accidentally enter O2 + He > 100.
