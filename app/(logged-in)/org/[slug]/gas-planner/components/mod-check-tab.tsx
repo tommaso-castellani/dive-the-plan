@@ -2,15 +2,7 @@
 
 import { useState } from 'react';
 
-import {
-  AlertTriangle,
-  Calculator,
-  Droplet,
-  Gauge,
-  Thermometer,
-  Waves,
-  Wind,
-} from 'lucide-react';
+import { AlertTriangle, Calculator, Droplet, Gauge, Thermometer, Waves, Wind } from 'lucide-react';
 
 import {
   type MODCheckResult,
@@ -75,9 +67,7 @@ export function ModCheckTab() {
         <CardContent className="space-y-6">
           {/* Gas mix */}
           <div className="space-y-3">
-            <Label className="text-muted-foreground text-xs uppercase tracking-wide">
-              Gas Mix
-            </Label>
+            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Gas Mix</Label>
             <div className="grid grid-cols-2 gap-3">
               <NumberField
                 id="o2"
@@ -192,9 +182,7 @@ export function ModCheckTab() {
             Maximum operating depth from each limit. The smallest is the binding one.
           </p>
         </CardHeader>
-        <CardContent>
-          {result ? <ResultsView result={result} /> : <ResultsEmpty />}
-        </CardContent>
+        <CardContent>{result ? <ResultsView result={result} /> : <ResultsEmpty />}</CardContent>
       </Card>
     </div>
   );
@@ -273,21 +261,21 @@ function ResultsView({ result }: { result: MODCheckResult }) {
       <div className="bg-muted/40 flex items-start gap-4 rounded-md p-5">
         <AlertTriangle className="text-chart-3 mt-0.5 h-5 w-5 shrink-0" />
         <div className="space-y-1">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+          <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
             Limiting MOD
           </p>
           <p className="text-3xl font-semibold tabular-nums">{limitingDisplay}</p>
           <p className="text-muted-foreground text-sm">
             This blend is constrained by{' '}
-            <span className="text-foreground font-medium">{LIMITER_LABEL[result.limiter]}</span>{' '}
-            at the depth above.
+            <span className="text-foreground font-medium">{LIMITER_LABEL[result.limiter]}</span> at
+            the depth above.
           </p>
         </div>
       </div>
 
       {/* Per-limit breakdown */}
       <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wide">
+        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
           Per-limit Maximum Operating Depth
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -330,17 +318,12 @@ function MODCard({ label, value, isLimiter }: MODCardProps) {
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-xs">{label}</p>
         {isLimiter && (
-          <span className="text-primary text-[10px] font-semibold uppercase tracking-wide">
+          <span className="text-primary text-[10px] font-semibold tracking-wide uppercase">
             Limiting
           </span>
         )}
       </div>
-      <p
-        className={cn(
-          'mt-1 text-2xl font-semibold tabular-nums',
-          isLimiter && 'text-primary'
-        )}
-      >
+      <p className={cn('mt-1 text-2xl font-semibold tabular-nums', isLimiter && 'text-primary')}>
         {display}
       </p>
     </div>
