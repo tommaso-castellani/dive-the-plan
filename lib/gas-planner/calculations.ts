@@ -221,6 +221,68 @@ export interface BestMixResult {
 
 const DEFAULT_DENSITY_LIMIT = 5.2;
 
+// ---------------------------------------------------------------------------
+// GAS CHECK
+// ---------------------------------------------------------------------------
+
+interface GasCheckInput {
+  mode: DivingMode;
+  /** Target depth in meters */
+  depth: number;
+  /** Water temperature in Celsius */
+  waterTemp: number;
+  /** Oxygen fraction (0-1) */
+  fO2: number;
+  /** Helium fraction (0-1). Defaults to 0 (nitrox / air). */
+  fHe?: number;
+}
+
+export interface GasCheckResult {
+  fractions: GasFractions;
+  /** O2 percentage (0-100) */
+  o2Percent: number;
+  /** He percentage (0-100) */
+  hePercent: number;
+  /** N2 percentage (0-100) */
+  n2Percent: number;
+  /** Partial pressures of the mix at depth */
+  partialPressures: PartialPressures;
+  /** Density of the mix at depth (g/L) */
+  densityAtDepth: number;
+  /** Equivalent Narcotic Depth at depth (m) */
+  endAtDepth: number;
+}
+
+/**
+ * Verify the operational metrics of a known gas at a target depth.
+ * Returns ppO2 (or diluent ppO2 for CCR), ppN2, ppHe, gas density and END.
+ */
+export function calculateGasCheck(input: GasCheckInput): GasCheckResult {
+  const { depth, waterTemp } = input;
+
+  // Clamp & normalize the input fractions so that fO2 + fHe + fN2 == 1.
+  const fO2 = Math.min(1, Math.max(0, input.fO2));
+  const rawFHe = input.fHe ?? 0;
+  const fHe = Math.min(1 - fO2, Math.max(0, rawFHe));
+  const fN2 = Math.max(0, 1 - fO2 - fHe);
+
+  const fractions: GasFractions = { fO2, fHe, fN2 };
+
+  const partialPressures = calculatePartialPressures(fractions, depth);
+  const densityAtDepth = calculateGasDensity(fractions, depth, waterTemp);
+  const endAtDepth = calculateEND(fHe, depth);
+
+  return {
+    fractions,
+    o2Percent: fO2 * 100,
+    hePercent: fHe * 100,
+    n2Percent: fN2 * 100,
+    partialPressures,
+    densityAtDepth,
+    endAtDepth,
+  };
+}
+
 /**
  * Compute the optimal mix for a target depth that:
  *   1. Hits the requested ppO2 (max for OC, diluent for CCR)
