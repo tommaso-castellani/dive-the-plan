@@ -78,7 +78,7 @@ export function BestMixTab() {
         <CardContent className="space-y-6">
           {/* Mode toggle */}
           <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs uppercase tracking-wide">Mode</Label>
+            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Mode</Label>
             <Tabs value={mode} onValueChange={handleModeChange}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="OC">Open Circuit</TabsTrigger>
@@ -179,9 +179,7 @@ export function BestMixTab() {
             Optimal blend and operational depth limits.
           </p>
         </CardHeader>
-        <CardContent>
-          {result ? <ResultsView result={result} /> : <ResultsEmpty />}
-        </CardContent>
+        <CardContent>{result ? <ResultsView result={result} /> : <ResultsEmpty />}</CardContent>
       </Card>
     </div>
   );
@@ -268,7 +266,7 @@ function ResultsView({ result }: { result: BestMixResult }) {
 
       {/* MOD breakdown */}
       <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wide">
+        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
           Maximum Operating Depth
         </p>
         <div className="grid gap-3 sm:grid-cols-3">

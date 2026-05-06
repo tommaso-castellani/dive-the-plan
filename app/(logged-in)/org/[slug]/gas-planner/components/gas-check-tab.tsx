@@ -81,7 +81,7 @@ export function GasCheckTab() {
         <CardContent className="space-y-6">
           {/* Mode toggle */}
           <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs uppercase tracking-wide">Mode</Label>
+            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Mode</Label>
             <Tabs value={mode} onValueChange={handleModeChange}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="OC">Open Circuit</TabsTrigger>
@@ -123,9 +123,7 @@ export function GasCheckTab() {
               <span className="text-muted-foreground">N₂ (balance)</span>
             </div>
             <span
-              className={`font-mono text-sm tabular-nums ${
-                isMixInvalid ? 'text-destructive' : ''
-              }`}
+              className={`font-mono text-sm tabular-nums ${isMixInvalid ? 'text-destructive' : ''}`}
             >
               {isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
             </span>
@@ -167,12 +165,7 @@ export function GasCheckTab() {
             </div>
           </div>
 
-          <Button
-            onClick={handleCalculate}
-            className="w-full"
-            size="lg"
-            disabled={isMixInvalid}
-          >
+          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={isMixInvalid}>
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>
@@ -276,7 +269,7 @@ function ResultsView({ result, mode }: { result: GasCheckResult; mode: DivingMod
 
       {/* Operational metrics */}
       <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium uppercase tracking-wide">
+        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
           At Target Depth
         </p>
         <div className="grid gap-3 sm:grid-cols-3">

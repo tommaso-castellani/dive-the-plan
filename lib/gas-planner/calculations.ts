@@ -73,10 +73,7 @@ interface PartialPressures {
  * Compute partial pressures of each gas component at a given depth.
  * pp_i = f_i * P_abs
  */
-function calculatePartialPressures(
-  fractions: GasFractions,
-  depthMeters: number
-): PartialPressures {
+function calculatePartialPressures(fractions: GasFractions, depthMeters: number): PartialPressures {
   const pAbs = depthToAbsPressure(depthMeters);
   return {
     ppO2: fractions.fO2 * pAbs,
