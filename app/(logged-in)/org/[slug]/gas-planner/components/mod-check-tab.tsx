@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { AlertTriangle, Calculator, Droplet, Gauge, Thermometer, Waves, Wind } from 'lucide-react';
 
 import {
+  type DivingMode,
   type MODCheckResult,
   type MODLimiter,
   calculateMODCheck,
@@ -16,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DEFAULTS = {
   o2Percent: 21,
@@ -30,6 +32,7 @@ const TEMP_MIN = 0;
 const TEMP_MAX = 32;
 
 export function ModCheckTab() {
+  const [mode, setMode] = useState<DivingMode>('OC');
   const [o2Percent, setO2Percent] = useState<number>(DEFAULTS.o2Percent);
   const [hePercent, setHePercent] = useState<number>(DEFAULTS.hePercent);
   const [targetPpO2, setTargetPpO2] = useState<number>(DEFAULTS.targetPpO2);
@@ -37,6 +40,12 @@ export function ModCheckTab() {
   const [targetDensity, setTargetDensity] = useState<number>(DEFAULTS.targetDensity);
   const [waterTemp, setWaterTemp] = useState<number>(DEFAULTS.waterTemp);
   const [result, setResult] = useState<MODCheckResult | null>(null);
+
+  const handleModeChange = (next: string) => {
+    if (next !== 'OC' && next !== 'CCR') return;
+    setMode(next);
+    setResult(null);
+  };
 
   const n2Percent = Math.max(0, 100 - o2Percent - hePercent);
   const mixIsValid = o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
@@ -65,6 +74,17 @@ export function ModCheckTab() {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Mode toggle */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Mode</Label>
+            <Tabs value={mode} onValueChange={handleModeChange}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="OC">Open Circuit</TabsTrigger>
+                <TabsTrigger value="CCR">CCR</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           {/* Gas mix */}
           <div className="space-y-3">
             <Label className="text-muted-foreground text-xs tracking-wide uppercase">Gas Mix</Label>
@@ -105,11 +125,11 @@ export function ModCheckTab() {
             </div>
           </div>
 
-          {/* Target ppO2 */}
+          {/* Target ppO2 / Setpoint — copy switches by mode */}
           <NumberField
             id="target-ppo2"
             icon={<Gauge className="h-4 w-4" />}
-            label="Target ppO₂"
+            label={mode === 'CCR' ? 'Target Setpoint' : 'Target ppO₂'}
             unit="bar"
             value={targetPpO2}
             min={0.16}
