@@ -1,5 +1,5 @@
 /**
- * Gas Planner Calculations
+ * Gas Planner Calculations.
  *
  * Open-source technical diving calculations for trimix/nitrox blending,
  * gas density, equivalent narcotic depth (END), partial pressures, and MOD.
