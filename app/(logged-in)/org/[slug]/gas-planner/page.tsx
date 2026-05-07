@@ -53,7 +53,7 @@ export default function GasPlannerPage() {
         </TabsContent>
 
         <TabsContent value="mod-check">
-          <ModCheckTab />
+          <ModCheckTab key={mode} mode={mode} />
         </TabsContent>
       </Tabs>
     </div>

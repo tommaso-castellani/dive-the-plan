@@ -177,6 +177,78 @@ function calculateMODByDensity(
 
 export type DivingMode = 'OC' | 'CCR';
 
+// ---------------------------------------------------------------------------
+// MOD CHECK
+// ---------------------------------------------------------------------------
+
+interface MODCheckInput {
+  /** Oxygen fraction of the breathing gas (0-1) */
+  fO2: number;
+  /** Helium fraction of the breathing gas (0-1) */
+  fHe: number;
+  /** Maximum acceptable ppO2 (bar) */
+  targetPpO2: number;
+  /** Maximum acceptable Equivalent Narcotic Depth (m) */
+  targetEND: number;
+  /** Maximum acceptable gas density (g/L) */
+  targetDensity: number;
+  /** Water temperature in Celsius (used for density calc) */
+  waterTemp: number;
+}
+
+export type MODLimiter = 'ppO2' | 'END' | 'density';
+
+export interface MODCheckResult {
+  /** Echoed gas fractions for convenience */
+  fractions: GasFractions;
+  /** MOD imposed by the ppO2 limit (m) */
+  modByPpO2: number;
+  /** MOD imposed by the END limit (m) */
+  modByEND: number;
+  /** MOD imposed by the gas-density limit (m) */
+  modByDensity: number;
+  /** Smallest of the three MODs — the actual operational limit (m) */
+  limitingMOD: number;
+  /** Which input limit is the binding constraint */
+  limiter: MODLimiter;
+}
+
+/**
+ * For a given breathing gas, compute the MOD imposed independently by
+ * ppO2, END and gas-density limits. The smallest of the three is the
+ * effective MOD; the corresponding constraint is the limiter.
+ */
+export function calculateMODCheck(input: MODCheckInput): MODCheckResult {
+  const fO2 = Math.max(0, Math.min(1, input.fO2));
+  const fHe = Math.max(0, Math.min(1 - fO2, input.fHe));
+  const fN2 = Math.max(0, 1 - fO2 - fHe);
+  const fractions: GasFractions = { fO2, fHe, fN2 };
+
+  const modByPpO2 = Math.max(0, calculateMODByPpO2(fO2, input.targetPpO2));
+  const modByEND = Math.max(0, calculateMODByEND(fHe, input.targetEND));
+  const modByDensity = Math.max(
+    0,
+    calculateMODByDensity(fractions, input.targetDensity, input.waterTemp)
+  );
+
+  // Pick the lowest as the limiting depth.
+  const candidates: { value: number; limiter: MODLimiter }[] = [
+    { value: modByPpO2, limiter: 'ppO2' },
+    { value: modByEND, limiter: 'END' },
+    { value: modByDensity, limiter: 'density' },
+  ];
+  const limiting = candidates.reduce((acc, cur) => (cur.value < acc.value ? cur : acc));
+
+  return {
+    fractions,
+    modByPpO2,
+    modByEND,
+    modByDensity,
+    limitingMOD: limiting.value,
+    limiter: limiting.limiter,
+  };
+}
+
 interface BestMixInput {
   mode: DivingMode;
   /** Target depth in meters */
