@@ -20,9 +20,9 @@ import {
   calculateFillUp,
 } from '@/lib/gas-mixer/mixer';
 
+import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -71,8 +71,23 @@ export function FillUpTab() {
   const isTopUpMixInvalid = topUpO2Percent + topUpHePercent > 100;
   const isPressureInvalid = endPressure <= startPressure;
 
+  // Treat empty/unparseable fields (NaN) as incomplete so we don't compute on them.
+  const hasMissingValue =
+    !Number.isFinite(startPressure) ||
+    !Number.isFinite(startO2Percent) ||
+    !Number.isFinite(startHePercent) ||
+    !Number.isFinite(endPressure) ||
+    !Number.isFinite(finalO2Percent) ||
+    !Number.isFinite(finalHePercent) ||
+    (topUpPreset === 'custom' &&
+      (!Number.isFinite(customTopUpO2Percent) || !Number.isFinite(customTopUpHePercent)));
+
   const hasInputError =
-    isStartMixInvalid || isFinalMixInvalid || isTopUpMixInvalid || isPressureInvalid;
+    hasMissingValue ||
+    isStartMixInvalid ||
+    isFinalMixInvalid ||
+    isTopUpMixInvalid ||
+    isPressureInvalid;
 
   const handleCalculate = () => {
     if (hasInputError) return;
@@ -330,47 +345,6 @@ export function FillUpTab() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : 0);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function SubSection({ title, hint }: { title: string; hint?: string }) {
   return (
