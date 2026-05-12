@@ -52,7 +52,7 @@ export function FillUpTab() {
   const [topUpPreset, setTopUpPreset] = useState<TopUpPreset>('21');
   const [customTopUpO2Percent, setCustomTopUpO2Percent] = useState<number>(21);
   const [customTopUpHePercent, setCustomTopUpHePercent] = useState<number>(0);
-  const [firstGas, setFirstGas] = useState<FillFirstGas>('O2');
+  const [firstGas, setFirstGas] = useState<FillFirstGas>('He');
   const [ambientTemp, setAmbientTemp] = useState<number>(20);
 
   const [result, setResult] = useState<FillUpResult | null>(null);
@@ -267,11 +267,11 @@ export function FillUpTab() {
                 variant="outline"
                 className="w-full"
               >
-                <ToggleGroupItem value="O2" className="flex-1">
-                  Pure O₂
-                </ToggleGroupItem>
                 <ToggleGroupItem value="He" className="flex-1">
                   Pure He
+                </ToggleGroupItem>
+                <ToggleGroupItem value="O2" className="flex-1">
+                  Pure O₂
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
