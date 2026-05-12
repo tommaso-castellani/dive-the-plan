@@ -66,16 +66,6 @@ export default function AdminUsersPage() {
     }
   );
 
-  const { data: orgsData } = trpc.admin.organizations.list.useQuery(
-    {
-      page: 1,
-      pageSize: 100,
-    },
-    {
-      staleTime: 1000 * 60 * 5,
-    }
-  );
-
   const createUser = trpc.admin.users.create.useMutation({
     onSuccess: () => {
       toast({
@@ -162,7 +152,6 @@ export default function AdminUsersPage() {
         onOpenChange={setCreateDialogOpen}
         onSubmit={handleCreateSubmit}
         isPending={createUser.isPending}
-        availableOrganizations={orgsData?.organizations ?? []}
       />
 
       <AlertDialog

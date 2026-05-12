@@ -75,21 +75,21 @@ export async function POST(req: Request) {
 
   const existingMessageCount = existingMessages.length;
 
-  // Get file search store for organization (required for RAG)
-  const orgDocs = await db
+  // Get file search store for the user (required for RAG)
+  const userDocs = await db
     .select({ fileSearchStoreName: documents.fileSearchStoreName })
     .from(documents)
-    .where(eq(documents.organizationId, chatSession.organizationId))
+    .where(eq(documents.userId, session.user.id))
     .limit(1);
 
-  if (orgDocs.length === 0 || !orgDocs[0].fileSearchStoreName) {
+  if (userDocs.length === 0 || !userDocs[0].fileSearchStoreName) {
     return ApiResponseHandler.badRequest(
       'No documents available. Please upload documents before chatting with the assistant.'
     );
   }
 
   const startTime = Date.now();
-  const ragSettings = await getRAGSettings(chatSession.organizationId);
+  const ragSettings = await getRAGSettings(session.user.id);
   const {
     systemPrompt = null,
     maxOutputTokens = null,
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
     tools: {
       // @ts-expect-error - Google AI SDK file search tool type incompatibility
       file_search: googleGenerativeAIProvider.tools.fileSearch({
-        fileSearchStoreNames: [orgDocs[0].fileSearchStoreName],
+        fileSearchStoreNames: [userDocs[0].fileSearchStoreName],
       }),
     },
     activeTools: ['file_search'],
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
 
         if (relevantSources.length > 0) {
           // Extract document IDs from filenames (format: {documentId}-{originalName})
-          // Generate proxy URLs with organizationId for access control
+          // Generate proxy URLs for authenticated user access
           const sourcesWithIds = relevantSources
             .map((source) => {
               const documentId = extractDocumentIdFromFilename(source.title);
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
               return {
                 documentId,
                 title: source.title.replace(`${documentId}-`, ''), // Remove documentId prefix for display
-                url: `/api/documents/${chatSession.organizationId}/${documentId}`,
+                url: `/api/documents/${documentId}`,
               };
             })
             .filter((s): s is { documentId: string; title: string; url: string } => s !== null);
@@ -213,7 +213,6 @@ export async function POST(req: Request) {
           finishReason: finishReason,
           generationConfig,
           userId: session.user.id,
-          organizationId: chatSession.organizationId,
           chatSessionId: chatSession.id,
         });
       } catch (error) {
@@ -226,7 +225,6 @@ export async function POST(req: Request) {
             operation: 'save_messages',
             chatSessionId: chatSession.id,
             userId: session.user.id,
-            organizationId: chatSession.organizationId,
           },
           contexts: {
             chat: {

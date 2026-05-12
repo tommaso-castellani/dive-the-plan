@@ -6,8 +6,7 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/billing/client';
 import { SubscriptionTier, SubscriptionTierType } from '@/lib/billing/products';
 import { db } from '@/lib/db';
-import { SubscriptionStatus, orgSubscriptions } from '@/lib/db/schema';
-import { getOrgById } from '@/lib/organizations';
+import { SubscriptionStatus, userSubscriptions, users } from '@/lib/db/schema';
 import { getConfigOrEnv } from '@/lib/services/config-service';
 import { CONFIG_KEYS } from '@/lib/services/constants';
 
@@ -124,15 +123,15 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Helper: Get organizationId from subscription metadata with validation
+ * Helper: Get userId from subscription metadata with validation
  */
-function getOrganizationId(subscription: Stripe.Subscription): string | null {
-  const orgId = subscription.metadata?.organizationId as string;
-  if (!orgId || typeof orgId !== 'string' || orgId.trim() === '') {
-    console.error('❌ Invalid or missing organizationId in metadata:', subscription.metadata);
+function getUserId(subscription: Stripe.Subscription): string | null {
+  const userId = subscription.metadata?.userId as string;
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    console.error('❌ Invalid or missing userId in metadata:', subscription.metadata);
     return null;
   }
-  return orgId;
+  return userId;
 }
 
 /**
@@ -156,26 +155,33 @@ function getTier(subscription: Stripe.Subscription): string | null {
 }
 
 /**
+ * Helper: Verify user exists in the database
+ */
+async function userExists(userId: string): Promise<boolean> {
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  return !!user;
+}
+
+/**
  * Handle subscription.created event
  */
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   try {
-    const organizationId = getOrganizationId(subscription);
+    const userId = getUserId(subscription);
     const tier = getTier(subscription);
 
-    if (!organizationId || !tier) {
+    if (!userId || !tier) {
       console.error('❌ Missing or invalid metadata in subscription.created:', subscription.id);
       return;
     }
 
     const stripe = await getStripe();
 
-    // Verify organization exists to prevent orphaned subscription records
-    const org = await getOrgById(organizationId);
-    if (!org) {
+    // Verify user exists to prevent orphaned subscription records
+    if (!(await userExists(userId))) {
       console.error(
-        '❌ Cannot create subscription for non-existent organization:',
-        organizationId,
+        '❌ Cannot create subscription for non-existent user:',
+        userId,
         'subscription:',
         subscription.id
       );
@@ -199,58 +205,66 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       return;
     }
 
-    // Check if this subscription already exists in the database
-    // This prevents race conditions with seed scripts or manual DB operations
-    const existingSubscriptions = await db
-      .select()
-      .from(orgSubscriptions)
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+    // Check if a subscription record already exists for this user (one-per-user constraint)
+    const existingSubscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
+    });
 
-    const subscriptionExists = existingSubscriptions.some(
-      (sub) => sub.stripeSubscriptionId === subscription.id
-    );
-
-    if (subscriptionExists) {
+    // Idempotency: if this exact subscription already exists, skip
+    if (existingSubscription?.stripeSubscriptionId === subscription.id) {
       console.log(
         `ℹ️  Subscription ${subscription.id} already exists in database, skipping creation`
       );
       return;
     }
 
-    // Cancel existing active subscriptions to prevent duplicates
-    // This handles all upgrade scenarios including Free → Paid upgrades
-    for (const existing of existingSubscriptions) {
-      if (existing.status === SubscriptionStatus.ACTIVE && existing.stripeSubscriptionId) {
-        // Cancel in Stripe first
+    // If an existing subscription exists for this user, cancel it in Stripe (if active)
+    // and replace the local record. This handles all upgrade scenarios including Free → Paid.
+    if (existingSubscription) {
+      if (
+        existingSubscription.status === SubscriptionStatus.ACTIVE &&
+        existingSubscription.stripeSubscriptionId &&
+        existingSubscription.stripeSubscriptionId !== subscription.id
+      ) {
         try {
-          await stripe.subscriptions.cancel(existing.stripeSubscriptionId);
+          await stripe.subscriptions.cancel(existingSubscription.stripeSubscriptionId);
           console.log(
-            `✅ Canceled Stripe subscription ${existing.stripeSubscriptionId} for org upgrade`
+            `✅ Canceled Stripe subscription ${existingSubscription.stripeSubscriptionId} for user upgrade`
           );
         } catch (error) {
           console.error(
-            `⚠️ Failed to cancel Stripe subscription ${existing.stripeSubscriptionId}:`,
+            `⚠️ Failed to cancel Stripe subscription ${existingSubscription.stripeSubscriptionId}:`,
             error
           );
           // Continue anyway to update local database
         }
-
-        // Update local database
-        await db
-          .update(orgSubscriptions)
-          .set({
-            status: 'canceled',
-            canceledAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(orgSubscriptions.id, existing.id));
-
-        console.log(`✅ Canceled local subscription record ${existing.id} for org upgrade`);
       }
+
+      // Update existing record (unique constraint on userId means we cannot insert another)
+      await db
+        .update(userSubscriptions)
+        .set({
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: subscription.customer as string,
+          stripePriceId: priceId,
+          status: subscription.status,
+          tier,
+          currentPeriodStart: new Date(currentPeriodStart * 1000),
+          currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end ? 'true' : 'false',
+          canceledAt: null,
+          scheduledDowngradeTier: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSubscriptions.id, existingSubscription.id));
+
+      console.log('✅ Subscription replaced in database for user:', userId, subscription.id);
+      return;
     }
 
-    await db.insert(orgSubscriptions).values({
-      organizationId,
+    // No existing subscription - insert new record
+    await db.insert(userSubscriptions).values({
+      userId,
       stripeSubscriptionId: subscription.id,
       stripeCustomerId: subscription.customer as string,
       stripePriceId: priceId,
@@ -292,7 +306,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     }
 
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         status: subscription.status,
         stripePriceId: priceId,
@@ -301,7 +315,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         cancelAtPeriodEnd: subscription.cancel_at_period_end ? 'true' : 'false',
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, subscription.id));
+      .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
 
     console.log('✅ Subscription updated in database:', subscription.id);
   } catch (error) {
@@ -322,7 +336,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const now = new Date();
 
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         status: 'canceled',
         cancelAtPeriodEnd: 'true',
@@ -330,7 +344,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         currentPeriodEnd: now, // Set to now to indicate immediate termination
         updatedAt: now,
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, subscription.id));
+      .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
 
     console.log('✅ Subscription marked as deleted in database:', subscription.id);
   } catch (error) {
@@ -352,14 +366,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
     // Update subscription with period info from invoice + ensure active status
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         status: 'active',
         currentPeriodStart: new Date(invoice.period_start * 1000),
         currentPeriodEnd: new Date(invoice.period_end * 1000),
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, subscriptionId));
+      .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId));
 
     console.log('✅ Invoice paid, subscription confirmed active:', subscriptionId);
   } catch (error) {
@@ -382,12 +396,12 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
     // Mark subscription as past_due
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         status: 'past_due',
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, subscriptionId));
+      .where(eq(userSubscriptions.stripeSubscriptionId, subscriptionId));
 
     console.log('⚠️ Payment failed for subscription:', subscriptionId);
   } catch (error) {
@@ -402,20 +416,19 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  */
 async function handleSubscriptionScheduleCompleted(schedule: Stripe.SubscriptionSchedule) {
   try {
-    const organizationId = schedule.metadata?.organizationId;
+    const userId = schedule.metadata?.userId;
     const targetTier = schedule.metadata?.targetTier;
 
-    if (!organizationId || !targetTier) {
+    if (!userId || !targetTier) {
       console.error('❌ Missing metadata in subscription_schedule.completed:', schedule.id);
       return;
     }
 
-    // Verify organization exists
-    const org = await getOrgById(organizationId);
-    if (!org) {
+    // Verify user exists
+    if (!(await userExists(userId))) {
       console.error(
-        '❌ Cannot complete schedule for non-existent organization:',
-        organizationId,
+        '❌ Cannot complete schedule for non-existent user:',
+        userId,
         'schedule:',
         schedule.id
       );
@@ -423,28 +436,24 @@ async function handleSubscriptionScheduleCompleted(schedule: Stripe.Subscription
     }
 
     console.log(
-      `✅ Subscription schedule completed for organization ${organizationId}, downgrading to ${targetTier}`
+      `✅ Subscription schedule completed for user ${userId}, downgrading to ${targetTier}`
     );
 
     // The schedule automatically creates a new subscription when it completes
     // The subscription.created event will handle creating the new subscription record
-    // We just need to clear the scheduledDowngradeTier field from the old subscription
-
-    const results = await db
-      .select()
-      .from(orgSubscriptions)
-      .where(eq(orgSubscriptions.organizationId, organizationId))
-      .limit(1);
-    const currentSub = results[0];
+    // We just need to clear the scheduledDowngradeTier field from the existing subscription
+    const currentSub = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
+    });
 
     if (currentSub) {
       await db
-        .update(orgSubscriptions)
+        .update(userSubscriptions)
         .set({
           scheduledDowngradeTier: null,
           updatedAt: new Date(),
         })
-        .where(eq(orgSubscriptions.id, currentSub.id));
+        .where(eq(userSubscriptions.id, currentSub.id));
     }
 
     console.log('✅ Scheduled downgrade completed successfully');
@@ -460,19 +469,19 @@ async function handleSubscriptionScheduleCompleted(schedule: Stripe.Subscription
  */
 async function handleSubscriptionScheduleCanceled(schedule: Stripe.SubscriptionSchedule) {
   try {
-    const organizationId = schedule.metadata?.organizationId;
+    const userId = schedule.metadata?.userId;
     const currentSubscriptionId = schedule.metadata?.currentSubscriptionId;
 
-    if (!organizationId || !currentSubscriptionId) {
+    if (!userId || !currentSubscriptionId) {
       console.error('❌ Missing metadata in subscription_schedule.canceled:', schedule.id);
       return;
     }
 
-    console.log(`✅ Subscription schedule canceled for organization ${organizationId}`);
+    console.log(`✅ Subscription schedule canceled for user ${userId}`);
 
     // Remove the scheduled downgrade and reactivate the current subscription
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         scheduledDowngradeTier: null,
         cancelAtPeriodEnd: 'false',
@@ -480,7 +489,7 @@ async function handleSubscriptionScheduleCanceled(schedule: Stripe.SubscriptionS
         status: 'active',
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, currentSubscriptionId));
+      .where(eq(userSubscriptions.stripeSubscriptionId, currentSubscriptionId));
 
     console.log('✅ Pending downgrade removed, current subscription reactivated');
   } catch (error) {

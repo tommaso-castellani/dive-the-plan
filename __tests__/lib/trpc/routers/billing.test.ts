@@ -12,18 +12,7 @@ import { SubscriptionState } from '@/lib/types';
 vi.mock('@/lib/db/drizzle', () => ({
   db: {
     query: {
-      orgMemberships: {
-        findFirst: vi.fn(() =>
-          Promise.resolve({
-            id: 'membership_123',
-            organizationId: 'org_123',
-            userId: 'user_123',
-            role: 'owner',
-            createdAt: new Date(),
-          })
-        ),
-      },
-      orgSubscriptions: {
+      userSubscriptions: {
         findFirst: vi.fn(() => Promise.resolve(null)),
       },
     },
@@ -31,13 +20,14 @@ vi.mock('@/lib/db/drizzle', () => ({
 }));
 
 vi.mock('@/lib/billing', () => ({
-  getOrgSubscription: vi.fn(),
+  getUserSubscription: vi.fn(),
   getSubscriptionEligibility: vi.fn(),
   createCheckoutSession: vi.fn(),
-  cancelOrgSubscription: vi.fn(),
-  reactivateOrgSubscription: vi.fn(),
+  cancelUserSubscription: vi.fn(),
+  reactivateUserSubscription: vi.fn(),
   createCustomerPortalSession: vi.fn(),
   cancelPendingDowngrade: vi.fn(),
+  getPricingFromStripe: vi.fn(),
   BILLING_URLS: {
     success: 'http://localhost:3000/settings/billing',
     cancel: 'http://localhost:3000/settings/billing',
@@ -45,8 +35,12 @@ vi.mock('@/lib/billing', () => ({
 }));
 
 vi.mock('@/lib/billing/stripe-sync', () => ({
-  syncOrgSubscriptionFromStripe: vi.fn(),
+  syncUserSubscriptionFromStripe: vi.fn(),
   syncStaleSubscriptions: vi.fn(),
+}));
+
+vi.mock('@/lib/services/config-service', () => ({
+  isStripeApiKeyConfigured: vi.fn(() => Promise.resolve(true)),
 }));
 
 describe('Billing Router', () => {
@@ -56,18 +50,18 @@ describe('Billing Router', () => {
 
   describe('getStatus', () => {
     it('should return subscription status', async () => {
-      const { getOrgSubscription } = await import('@/lib/billing');
+      const { getUserSubscription } = await import('@/lib/billing');
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.PRO_MONTHLY,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodEnd: new Date(),
         activeSubscription: null,
       };
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
 
       const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
-      const result = await caller.billing.getStatus({ organizationId: 'org_123' });
+      const result = await caller.billing.getStatus();
 
       expect(result.tier).toBe(SubscriptionTier.PRO_MONTHLY);
       expect(result.status).toBe(SubscriptionStatus.ACTIVE);
@@ -78,15 +72,13 @@ describe('Billing Router', () => {
     it('should throw error when not authenticated', async () => {
       const caller = await createCaller(createMockTRPCContext());
 
-      await expect(caller.billing.getStatus({ organizationId: 'org_123' })).rejects.toThrow(
-        'You must be logged in'
-      );
+      await expect(caller.billing.getStatus()).rejects.toThrow('You must be logged in');
     });
   });
 
   describe('canSubscribe', () => {
     it('should return eligibility for free user', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.FREE_MONTHLY,
@@ -103,12 +95,12 @@ describe('Billing Router', () => {
         state: SubscriptionState.FREE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
       const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
-      const result = await caller.billing.canSubscribe({ organizationId: 'org_123' });
+      const result = await caller.billing.canSubscribe();
 
       expect(result.canSubscribe).toBe(true);
       expect(result.canCreateNew).toBe(true);
@@ -119,7 +111,7 @@ describe('Billing Router', () => {
     });
 
     it('should return eligibility for active pro user', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.PRO_MONTHLY,
@@ -136,12 +128,12 @@ describe('Billing Router', () => {
         state: SubscriptionState.ACTIVE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
       const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
-      const result = await caller.billing.canSubscribe({ organizationId: 'org_123' });
+      const result = await caller.billing.canSubscribe();
 
       expect(result.canSubscribe).toBe(true); // Can upgrade
       expect(result.canCreateNew).toBe(false);
@@ -150,7 +142,7 @@ describe('Billing Router', () => {
     });
 
     it('should calculate grace period correctly', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const mockSubscriptionInfo = {
@@ -168,12 +160,12 @@ describe('Billing Router', () => {
         state: SubscriptionState.CANCELED_GRACE_PERIOD,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
       const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
-      const result = await caller.billing.canSubscribe({ organizationId: 'org_123' });
+      const result = await caller.billing.canSubscribe();
 
       expect(result.currentSubscription.isInGracePeriod).toBe(true);
       expect(result.canReactivate).toBe(true);
@@ -182,7 +174,7 @@ describe('Billing Router', () => {
 
   describe('createCheckout', () => {
     it('should create checkout session for free user', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, createCheckoutSession } =
+      const { getUserSubscription, getSubscriptionEligibility, createCheckoutSession } =
         await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
@@ -200,7 +192,7 @@ describe('Billing Router', () => {
         state: SubscriptionState.FREE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
       vi.mocked(createCheckoutSession).mockResolvedValue({
         success: true,
@@ -211,12 +203,7 @@ describe('Billing Router', () => {
         },
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.createCheckout({
         tier: SubscriptionTier.PRO_MONTHLY,
@@ -226,15 +213,15 @@ describe('Billing Router', () => {
       expect(result.sessionId).toBe('cs_test_123');
       expect(createCheckoutSession).toHaveBeenCalledWith({
         tier: SubscriptionTier.PRO_MONTHLY,
+        userId: 'user_123',
         customerEmail: 'test@example.com',
-        organizationId: 'org_123',
         cancelUrl: 'http://localhost:3000/settings/billing',
         redirectUrl: 'http://localhost:3000/settings/billing',
       });
     });
 
     it('should throw error when user cannot subscribe', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.PRO_MONTHLY,
@@ -252,15 +239,10 @@ describe('Billing Router', () => {
         reason: 'Payment past due',
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(
         caller.billing.createCheckout({
@@ -270,7 +252,7 @@ describe('Billing Router', () => {
     });
 
     it('should throw error when checkout session creation fails', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, createCheckoutSession } =
+      const { getUserSubscription, getSubscriptionEligibility, createCheckoutSession } =
         await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
@@ -288,19 +270,14 @@ describe('Billing Router', () => {
         state: SubscriptionState.FREE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
       vi.mocked(createCheckoutSession).mockResolvedValue({
         success: false,
         message: 'Stripe API error',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(
         caller.billing.createCheckout({
@@ -312,7 +289,7 @@ describe('Billing Router', () => {
 
   describe('cancel', () => {
     it('should cancel active subscription', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, cancelOrgSubscription } =
+      const { getUserSubscription, getSubscriptionEligibility, cancelUserSubscription } =
         await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
@@ -322,7 +299,7 @@ describe('Billing Router', () => {
         activeSubscription: {
           id: 'sub_123',
           stripeSubscriptionId: 'sub_stripe_123',
-          organizationId: 'org_123',
+          userId: 'user_123',
           stripeCustomerId: 'cus_123',
           stripePriceId: 'price_123',
           status: 'active',
@@ -345,29 +322,24 @@ describe('Billing Router', () => {
         state: SubscriptionState.ACTIVE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
-      vi.mocked(cancelOrgSubscription).mockResolvedValue({
+      vi.mocked(cancelUserSubscription).mockResolvedValue({
         success: true,
         message: 'Subscription will be canceled at period end',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.cancel();
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('canceled');
-      expect(cancelOrgSubscription).toHaveBeenCalledWith('org_123', 'sub_stripe_123');
+      expect(cancelUserSubscription).toHaveBeenCalledWith('user_123', 'sub_stripe_123');
     });
 
     it('should throw error when no active subscription', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.FREE_MONTHLY,
@@ -384,21 +356,16 @@ describe('Billing Router', () => {
         state: SubscriptionState.FREE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.cancel()).rejects.toThrow('Subscription cannot be canceled');
     });
 
     it('should throw error when cancellation not allowed', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.PRO_MONTHLY,
@@ -407,7 +374,7 @@ describe('Billing Router', () => {
         activeSubscription: {
           id: 'sub_123',
           stripeSubscriptionId: 'sub_stripe_123',
-          organizationId: 'org_123',
+          userId: 'user_123',
           stripeCustomerId: 'cus_123',
           stripePriceId: 'price_123',
           status: 'past_due',
@@ -431,21 +398,16 @@ describe('Billing Router', () => {
         reason: 'Payment past due',
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.cancel()).rejects.toThrow('Subscription cannot be canceled');
     });
 
     it('should throw error when cancellation operation fails', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, cancelOrgSubscription } =
+      const { getUserSubscription, getSubscriptionEligibility, cancelUserSubscription } =
         await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
@@ -455,7 +417,7 @@ describe('Billing Router', () => {
         activeSubscription: {
           id: 'sub_123',
           stripeSubscriptionId: 'sub_stripe_123',
-          organizationId: 'org_123',
+          userId: 'user_123',
           stripeCustomerId: 'cus_123',
           stripePriceId: 'price_123',
           status: 'active',
@@ -478,19 +440,14 @@ describe('Billing Router', () => {
         state: SubscriptionState.ACTIVE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
-      vi.mocked(cancelOrgSubscription).mockResolvedValue({
+      vi.mocked(cancelUserSubscription).mockResolvedValue({
         success: false,
         message: 'Stripe API error',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.cancel()).rejects.toThrow('Stripe API error');
     });
@@ -498,7 +455,7 @@ describe('Billing Router', () => {
 
   describe('reactivate', () => {
     it('should reactivate canceled subscription in grace period', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, reactivateOrgSubscription } =
+      const { getUserSubscription, getSubscriptionEligibility, reactivateUserSubscription } =
         await import('@/lib/billing');
 
       const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -509,7 +466,7 @@ describe('Billing Router', () => {
         activeSubscription: {
           id: 'sub_123',
           stripeSubscriptionId: 'sub_stripe_123',
-          organizationId: 'org_123',
+          userId: 'user_123',
           stripeCustomerId: 'cus_123',
           stripePriceId: 'price_123',
           status: 'canceled',
@@ -533,19 +490,14 @@ describe('Billing Router', () => {
         gracePeriodEnds: futureDate,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
-      vi.mocked(reactivateOrgSubscription).mockResolvedValue({
+      vi.mocked(reactivateUserSubscription).mockResolvedValue({
         success: true,
         message: 'Subscription reactivated successfully',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.reactivate();
 
@@ -554,11 +506,11 @@ describe('Billing Router', () => {
       expect(result.subscription.id).toBe('sub_stripe_123');
       expect(result.subscription.tier).toBe('pro');
       expect(result.subscription.status).toBe('active');
-      expect(reactivateOrgSubscription).toHaveBeenCalledWith('org_123', 'sub_stripe_123');
+      expect(reactivateUserSubscription).toHaveBeenCalledWith('user_123', 'sub_stripe_123');
     });
 
     it('should throw error when cannot reactivate', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.FREE_MONTHLY,
@@ -575,15 +527,10 @@ describe('Billing Router', () => {
         state: SubscriptionState.FREE,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.reactivate()).rejects.toThrow(
         'Subscription cannot be reactivated'
@@ -591,7 +538,7 @@ describe('Billing Router', () => {
     });
 
     it('should throw error when no subscription to reactivate', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
+      const { getUserSubscription, getSubscriptionEligibility } = await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
         tier: SubscriptionTier.PRO_MONTHLY,
@@ -608,21 +555,16 @@ describe('Billing Router', () => {
         state: SubscriptionState.CANCELED_GRACE_PERIOD,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.reactivate()).rejects.toThrow('No subscription found');
     });
 
     it('should throw error when reactivation operation fails', async () => {
-      const { getOrgSubscription, getSubscriptionEligibility, reactivateOrgSubscription } =
+      const { getUserSubscription, getSubscriptionEligibility, reactivateUserSubscription } =
         await import('@/lib/billing');
 
       const mockSubscriptionInfo = {
@@ -632,7 +574,7 @@ describe('Billing Router', () => {
         activeSubscription: {
           id: 'sub_123',
           stripeSubscriptionId: 'sub_stripe_123',
-          organizationId: 'org_123',
+          userId: 'user_123',
           stripeCustomerId: 'cus_123',
           stripePriceId: 'price_123',
           status: 'canceled',
@@ -655,19 +597,14 @@ describe('Billing Router', () => {
         state: SubscriptionState.CANCELED_GRACE_PERIOD,
       };
 
-      vi.mocked(getOrgSubscription).mockResolvedValue(mockSubscriptionInfo);
+      vi.mocked(getUserSubscription).mockResolvedValue(mockSubscriptionInfo);
       vi.mocked(getSubscriptionEligibility).mockReturnValue(mockEligibility);
-      vi.mocked(reactivateOrgSubscription).mockResolvedValue({
+      vi.mocked(reactivateUserSubscription).mockResolvedValue({
         success: false,
         message: 'Stripe API error',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.reactivate()).rejects.toThrow('Stripe API error');
     });
@@ -685,17 +622,12 @@ describe('Billing Router', () => {
         },
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.createPortalSession();
 
       expect(result.url).toContain('billing.stripe.com');
-      expect(createCustomerPortalSession).toHaveBeenCalledWith('org_123');
+      expect(createCustomerPortalSession).toHaveBeenCalledWith('user_123');
     });
 
     it('should throw error when portal session creation fails', async () => {
@@ -706,12 +638,7 @@ describe('Billing Router', () => {
         message: 'No Stripe customer found',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.createPortalSession()).rejects.toThrow(
         'No Stripe customer found'
@@ -721,9 +648,9 @@ describe('Billing Router', () => {
 
   describe('sync', () => {
     it('should sync user subscription from Stripe', async () => {
-      const { syncOrgSubscriptionFromStripe } = await import('@/lib/billing/stripe-sync');
+      const { syncUserSubscriptionFromStripe } = await import('@/lib/billing/stripe-sync');
 
-      vi.mocked(syncOrgSubscriptionFromStripe).mockResolvedValue({
+      vi.mocked(syncUserSubscriptionFromStripe).mockResolvedValue({
         success: true,
         message: 'Subscription synced successfully',
         subscription: {
@@ -745,20 +672,15 @@ describe('Billing Router', () => {
         } as unknown as Stripe.Subscription,
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.sync({ action: 'user' });
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('synced');
-      expect(result.action).toBe('org_sync');
+      expect(result.action).toBe('user_sync');
       expect(result.subscription).toBeDefined();
-      expect(syncOrgSubscriptionFromStripe).toHaveBeenCalledWith('org_123');
+      expect(syncUserSubscriptionFromStripe).toHaveBeenCalledWith('user_123');
     });
 
     it('should sync stale subscriptions', async () => {
@@ -769,12 +691,7 @@ describe('Billing Router', () => {
         errors: [],
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.sync({ action: 'stale' });
 
@@ -793,12 +710,7 @@ describe('Billing Router', () => {
         errors: [],
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.sync({ action: 'emergency' });
 
@@ -819,18 +731,13 @@ describe('Billing Router', () => {
         message: 'Pending downgrade has been canceled',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       const result = await caller.billing.cancelDowngrade();
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Pending downgrade has been canceled');
-      expect(cancelPendingDowngrade).toHaveBeenCalledWith('org_123');
+      expect(cancelPendingDowngrade).toHaveBeenCalledWith('user_123');
     });
 
     it('should throw error when cancelPendingDowngrade fails', async () => {
@@ -841,12 +748,7 @@ describe('Billing Router', () => {
         message: 'No pending downgrade found',
       });
 
-      const caller = await createCaller(
-        createMockTRPCContext({
-          userId: 'user_123',
-          activeOrganizationId: 'org_123',
-        })
-      );
+      const caller = await createCaller(createMockTRPCContext({ userId: 'user_123' }));
 
       await expect(caller.billing.cancelDowngrade()).rejects.toThrow('No pending downgrade found');
     });

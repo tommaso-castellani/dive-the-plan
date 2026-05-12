@@ -8,11 +8,9 @@ import { CreditCard, LogOut, Menu, Settings, Shield, User } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-import { useAuth } from '@/hooks/use-auth';
-import { useAuthActions } from '@/hooks/use-auth';
+import { useAuth, useAuthActions } from '@/hooks/use-auth';
 import { useClient } from '@/hooks/use-client';
-import { useOrganization } from '@/hooks/use-organization';
-import { usePermissions } from '@/hooks/use-permissions';
+import { useUser } from '@/hooks/use-user';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
 
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -38,17 +36,17 @@ export default function Navbar({ variant = 'standard', className }: NavbarProps)
   const { isSignedIn } = useAuth();
   const { profileImageUrl, initials, displayName, primaryEmail } = useUserAvatar();
   const { signOut: handleSignOut } = useAuthActions();
-  const { isAdmin } = usePermissions();
+  const { user } = useUser();
+  const isAdmin = user?.role === 'admin';
   const { theme } = useTheme();
   const { isClient } = useClient();
-  const { organization: activeOrganization } = useOrganization();
   const logoUrl = isClient
     ? theme === 'dark'
       ? '/logos/logo-dark.svg'
       : '/logos/logo.svg'
     : '/logos/logo-dark.svg';
 
-  const dashboardUrl = activeOrganization ? `/org/${activeOrganization.slug}/dashboard` : '/';
+  const dashboardUrl = '/dashboard';
   const settingsUrl = '/settings';
   const billingUrl = '/settings/billing';
   const adminUrl = '/admin';

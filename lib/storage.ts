@@ -207,14 +207,14 @@ export async function deleteProfileImage(imageUrl: string): Promise<void> {
 /**
  * Uploads a document to S3 or local storage based on environment
  * @param file - The file to upload
- * @param organizationId - The ID of the organization
+ * @param userId - The ID of the user who owns the document
  * @returns The key of the uploaded file
  */
-export async function uploadDocument(file: File, organizationId: string): Promise<string> {
+export async function uploadDocument(file: File, userId: string): Promise<string> {
   try {
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const key = `documents/${organizationId}/${timestamp}-${sanitizedFileName}`;
+    const key = `documents/${userId}/${timestamp}-${sanitizedFileName}`;
 
     if (process.env.NODE_ENV === 'production' && process.env.S3_BUCKET) {
       const s3 = getS3Client();

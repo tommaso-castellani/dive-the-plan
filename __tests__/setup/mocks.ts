@@ -62,9 +62,6 @@ export const mockedSession = {
     token: 'test-token',
     createdAt: new Date(),
     updatedAt: new Date(),
-    activeOrganizationId: '',
-    activeOrganizationSlug: '',
-    activeOrganizationRole: 'owner',
   },
   user: {
     id: 'user-1',
@@ -300,18 +297,12 @@ function _createMockQueryClient() {
 // Helper to create tRPC test context matching createTRPCContext signature
 export function createMockTRPCContext(options?: {
   userId?: string | null;
-  activeOrganizationId?: string | null;
-  activeOrganizationSlug?: string | null;
-  orgRole?: string | null;
   getUser?: () => Promise<MockUserType | undefined>;
 }) {
   const userId = options?.userId ?? null;
 
   return {
     userId,
-    activeOrganizationId: options?.activeOrganizationId ?? null,
-    orgRole: options?.orgRole ?? 'owner',
-    activeOrganizationSlug: options?.activeOrganizationSlug ?? null,
     async getUser() {
       return Promise.resolve(mockUser);
     },

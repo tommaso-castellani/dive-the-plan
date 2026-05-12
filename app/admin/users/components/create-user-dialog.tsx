@@ -1,13 +1,13 @@
 'use client';
 
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import type { z } from 'zod';
 
 import { adminCreateUserSchema } from '@/lib/trpc/schemas/admin';
-import { ORG_ROLES, USER_ROLES } from '@/lib/types/organization';
+import { USER_ROLES } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -27,23 +27,16 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 
-type CreateUserFormValues = z.infer<typeof adminCreateUserSchema>;
+type CreateUserFormValues = z.input<typeof adminCreateUserSchema>;
+type CreateUserSubmitValues = z.output<typeof adminCreateUserSchema>;
 
 interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: CreateUserFormValues) => void;
+  onSubmit: (data: CreateUserSubmitValues) => void;
   isPending: boolean;
-  availableOrganizations?: Array<{ id: string; name: string; slug: string }>;
 }
 
 export function CreateUserDialog({
@@ -51,24 +44,16 @@ export function CreateUserDialog({
   onOpenChange,
   onSubmit,
   isPending,
-  availableOrganizations = [],
 }: CreateUserDialogProps) {
-  const form = useForm({
+  const form = useForm<CreateUserFormValues, unknown, CreateUserSubmitValues>({
     resolver: zodResolver(adminCreateUserSchema),
     defaultValues: {
       email: '',
-      organizationId: undefined,
-      orgRole: ORG_ROLES.MEMBER,
+      role: USER_ROLES.USER,
     },
   });
 
-  // Watch organizationId to conditionally show role field
-  const selectedOrgId = useWatch({
-    control: form.control,
-    name: 'organizationId',
-  });
-
-  const handleSubmit = (data: CreateUserFormValues) => {
+  const handleSubmit = (data: CreateUserSubmitValues) => {
     onSubmit(data);
   };
 
@@ -85,7 +70,7 @@ export function CreateUserDialog({
         <DialogHeader>
           <DialogTitle>Create User</DialogTitle>
           <DialogDescription>
-            Create a new user. You can optionally add them to an organization with a specific role.
+            Create a new user. They will receive an email to sign in.
           </DialogDescription>
         </DialogHeader>
 
@@ -133,65 +118,6 @@ export function CreateUserDialog({
                 </Field>
               )}
             />
-
-            <Controller
-              name="organizationId"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="organizationId">Organization (Optional)</FieldLabel>
-                  <Select
-                    value={field.value ?? '__none__'}
-                    onValueChange={(value) =>
-                      field.onChange(value === '__none__' ? undefined : value)
-                    }
-                    disabled={isPending}
-                  >
-                    <SelectTrigger id="organizationId">
-                      <SelectValue placeholder="Select an organization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No organization</SelectItem>
-                      {availableOrganizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>Optionally add the user to an organization</FieldDescription>
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-
-            {selectedOrgId && (
-              <Controller
-                name="orgRole"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <Field data-invalid={fieldState.invalid}>
-                    <FieldLabel htmlFor="orgRole">Role</FieldLabel>
-                    <Select
-                      value={field.value ?? 'member'}
-                      onValueChange={field.onChange}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger id="orgRole">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="owner">Owner</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="member">Member</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FieldDescription>The user&apos;s role in the organization</FieldDescription>
-                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                  </Field>
-                )}
-              />
-            )}
           </FieldGroup>
         </form>
 

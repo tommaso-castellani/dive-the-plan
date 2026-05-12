@@ -6,8 +6,7 @@
  *
  * Security:
  * - Authenticates user via Better Auth
- * - Verifies organization membership
- * - Validates document exists in database
+ * - Validates document exists and belongs to the authenticated user
  * - Prevents directory traversal attacks
  */
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,7 +19,7 @@ import { and, eq } from 'drizzle-orm';
 import { ApiResponseHandler } from '@/lib/api';
 import { auth } from '@/lib/auth/providers';
 import { db } from '@/lib/db/drizzle';
-import { documents, orgMemberships } from '@/lib/db/schema';
+import { documents } from '@/lib/db/schema';
 import { getContentTypeByExtension } from '@/lib/documents/constants';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
@@ -43,32 +42,24 @@ export async function GET(request: NextRequest, props: { params: Promise<{ path:
       return ApiResponseHandler.badRequest('Invalid file path');
     }
 
-    // Extract organizationId from the path (documents/{organizationId}/...)
+    // Extract userId from the path (documents/{userId}/...)
     const pathParts = filePath.split('/');
     if (pathParts[0] !== 'documents' || !pathParts[1]) {
       return ApiResponseHandler.badRequest('Invalid file path');
     }
 
-    const organizationId = pathParts[1];
+    const userIdFromPath = pathParts[1];
 
-    // Check if user has access to this organization
-    const membership = await db
-      .select()
-      .from(orgMemberships)
-      .where(
-        and(eq(orgMemberships.organizationId, organizationId), eq(orgMemberships.userId, user.id))
-      )
-      .limit(1);
-
-    if (membership.length === 0) {
-      return ApiResponseHandler.forbidden('You do not have access to this organization');
+    // Ensure the user owns this path
+    if (userIdFromPath !== user.id) {
+      return ApiResponseHandler.forbidden('You do not have access to this file');
     }
 
-    // Verify the document exists in the database and belongs to this organization
+    // Verify the document exists in the database and belongs to this user
     const document = await db
       .select()
       .from(documents)
-      .where(and(eq(documents.storageUrl, filePath), eq(documents.organizationId, organizationId)))
+      .where(and(eq(documents.storageUrl, filePath), eq(documents.userId, user.id)))
       .limit(1);
 
     if (document.length === 0) {

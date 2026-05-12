@@ -14,7 +14,6 @@ import { useMutation } from '@tanstack/react-query';
 import { emailOtp, signIn, signOut, useSession } from '@/lib/auth/client';
 import { AUTH_ROUTES } from '@/lib/auth/constants';
 import { trpc } from '@/lib/trpc/client';
-import { OrgRoleValue } from '@/lib/types';
 
 import { useToast } from '@/hooks/use-toast';
 
@@ -44,9 +43,6 @@ export function useAuth() {
     userId: user?.id,
     isLoading: isPending || isRefetching,
     isSignedIn: !!user,
-    activeOrganizationSlug: session?.activeOrganizationSlug,
-    activeOrganizationId: session?.activeOrganizationId,
-    activeOrganizationRole: session?.activeOrganizationRole as OrgRoleValue,
     refetch,
   };
 }
@@ -103,7 +99,6 @@ export function useAuthActions() {
       if (redirectUrl) {
         window.location.href = redirectUrl;
       } else {
-        // middleware will redirect to onboarding if no organization is found
         window.location.href = AUTH_ROUTES.ROOT;
       }
     },

@@ -1,5 +1,5 @@
 // Better Auth Types - Re-exported from Better Auth Email OTP plugin
-import type { EmailOTPOptions, OrganizationOptions } from 'better-auth/plugins';
+import type { EmailOTPOptions } from 'better-auth/plugins';
 
 // Better Auth - Client and types
 export { useSession, signIn, signOut, emailOtp } from './client';
@@ -14,12 +14,6 @@ export type OTPType = Parameters<EmailOTPOptions['sendVerificationOTP']>[0]['typ
  * Matches Better Auth's sendVerificationOTP parameters
  */
 export type SendOTPEmailParams = Parameters<EmailOTPOptions['sendVerificationOTP']>[0];
-
-export type InvitationEmailParams = Parameters<
-  NonNullable<OrganizationOptions['sendInvitationEmail']>
->[0] & {
-  inviteLink: string;
-};
 
 /**
  * Props for OTP email template component

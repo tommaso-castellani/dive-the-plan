@@ -28,6 +28,11 @@ const knipConfig = {
     // They are used but not imported in the codebase
     'drizzle-zod',
     '@trpc/next',
+    // Optional features available for template users (drag-and-drop, spreadsheet exports)
+    '@dnd-kit/core',
+    '@dnd-kit/sortable',
+    '@dnd-kit/utilities',
+    'xlsx',
   ],
   ignoreBinaries: ['shadcn'],
   rules: {

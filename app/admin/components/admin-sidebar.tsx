@@ -5,10 +5,7 @@ import * as React from 'react';
 import Link from 'next/link';
 
 import {
-  Activity,
   ArrowLeft,
-  Building2,
-  Database,
   FileText,
   KeySquare,
   LayoutDashboard,
@@ -43,28 +40,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
       title: 'Users',
       url: '/admin/users',
       icon: Users,
-    },
-    {
-      title: 'Organizations',
-      url: '/admin/organizations',
-      icon: Building2,
-    },
-    {
-      title: 'Jobs',
-      url: '/admin/jobs',
-      icon: Activity,
-    },
-    {
-      title: 'RAG Management',
-      url: '/admin/rag',
-      icon: Database,
-      items: [
-        {
-          title: 'Settings',
-          url: '/admin/rag/settings',
-          icon: Settings,
-        },
-      ],
     },
     {
       title: 'LLM Logs',

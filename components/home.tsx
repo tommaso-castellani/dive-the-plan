@@ -8,7 +8,6 @@ import { ArrowRight, Code2, Database, Lock, Rocket, Sparkles, Star, Zap } from '
 import { TechLogo } from '@/app/(logged-out)/home/components/tech-card';
 import { technologies } from '@/app/(logged-out)/home/data/technologies';
 
-import { useOrganization } from '@/hooks/use-organization';
 import { useUser } from '@/hooks/use-user';
 
 import { Badge } from '@/components/ui/badge';
@@ -44,9 +43,8 @@ const coreFeatures = [
 
 export function Home() {
   const { user } = useUser();
-  const { organization } = useOrganization();
 
-  const dashboardUrl = organization ? `/org/${organization.slug}/dashboard` : '/';
+  const dashboardUrl = '/dashboard';
 
   return (
     <div className="bg-background min-h-screen w-full pt-[60px]">
@@ -299,8 +297,7 @@ export function Home() {
                       <h3 className="text-base font-semibold sm:text-lg">Secure Auth</h3>
                     </div>
                     <p className="text-muted-foreground font-sans text-sm">
-                      Better Auth integration with passwordless authentication and organization
-                      management.
+                      Better Auth integration with passwordless email OTP and admin user management.
                     </p>
                   </CardContent>
                 </Card>

@@ -2,42 +2,78 @@
 
 import * as React from 'react';
 
-import { Gauge, Shield } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 
-import { useOrganization } from '@/hooks/use-organization';
-import { usePermissions } from '@/hooks/use-permissions';
+import { Bot, FileText, Gauge, LayoutDashboard, Shield } from 'lucide-react';
+
+import { useClient } from '@/hooks/use-client';
+import { useUser } from '@/hooks/use-user';
 
 import { NavMain } from '@/components/nav-main';
 import { NavSecondary } from '@/components/nav-secondary';
 import { NavUser } from '@/components/nav-user';
-import { SidebarOrgSwitcher } from '@/components/sidebar-org-switcher';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const NAV_ITEMS = [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'Gas Planner',
+    url: '/gas-planner',
+    icon: Gauge,
+  },
+  {
+    title: 'Documents',
+    url: '/documents',
+    icon: FileText,
+  },
+  {
+    title: 'Assistant',
+    url: '/assistant',
+    icon: Bot,
+  },
+];
+
+function SidebarBrand() {
+  const { isClient } = useClient();
+
+  // Default to dark logo during SSR to avoid hydration mismatch
+  const logoSrc = isClient ? '/logos/logo.svg' : '/logos/logo-dark.svg';
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild size="lg">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Image src={logoSrc} alt="Kosuke" width={120} height={24} priority />
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { organization: activeOrganization, isLoading } = useOrganization();
-  const { isAdmin } = usePermissions();
-
-  // Generate org-aware navigation items
-  const navItems = React.useMemo(() => {
-    if (!activeOrganization) return [];
-
-    const orgPrefix = `/org/${activeOrganization.slug}`;
-
-    return [
-      {
-        title: 'Gas Planner',
-        url: `${orgPrefix}/gas-planner`,
-        icon: Gauge,
-        isActive: true,
-      },
-    ];
-  }, [activeOrganization]);
+  const { user, isLoading } = useUser();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
-        <SidebarOrgSwitcher />
+        <SidebarBrand />
       </SidebarHeader>
       <SidebarContent>
         {isLoading ? (
@@ -45,18 +81,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
           </div>
         ) : (
           <>
-            {!activeOrganization ? (
-              <div className="space-y-2 p-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
-            ) : (
-              <NavMain items={navItems} />
-            )}
+            <NavMain items={NAV_ITEMS} />
 
             {isAdmin && (
               <NavSecondary

@@ -45,10 +45,8 @@ const isPublicRoute = createRouteMatcher([
   '/opengraph-image.png',
 ]);
 
-const isOnboardingRoute = createRouteMatcher(['/onboarding']);
 const isRootRoute = createRouteMatcher(['/']);
 const isAdminRoute = createRouteMatcher(['/admin(.*)']);
-const isProtectedRoute = createRouteMatcher(['/org(.*)', '/settings(.*)', '/admin(.*)']);
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 const isSignInVerifyRoute = createRouteMatcher([
   '/sign-in/verify',
@@ -62,7 +60,6 @@ export async function proxy(req: NextRequest) {
 
   const sessionData = getSessionFromCookie(req);
   const isAuthenticated = !!sessionData?.session;
-  const activeOrganizationSlug = sessionData?.session?.activeOrganizationSlug ?? null;
 
   // Protect /sign-in/verify - requires active sign-in attempt cookie
   if (isSignInVerifyRoute(req)) {
@@ -71,28 +68,18 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/sign-in', req.url));
   }
 
-  // Admin route authorization - must be super admin (authentication checked below)
+  // Admin route authorization - must be admin role
   if (isAuthenticated && isAdminRoute(req)) {
     if (sessionData.user.role !== 'admin') {
-      const redirectUrl = activeOrganizationSlug
-        ? `/org/${activeOrganizationSlug}/dashboard`
-        : '/onboarding';
-      return NextResponse.redirect(new URL(redirectUrl, req.url));
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
     return NextResponse.next();
   }
 
-  // If user has an organization, redirect to dashboard
-  if (isAuthenticated && activeOrganizationSlug) {
-    if (isProtectedRoute(req)) return NextResponse.next();
-    if (isPublicRoute(req) && !isRootRoute(req) && !isAuthRoute(req)) return NextResponse.next();
-    return NextResponse.redirect(new URL(`/org/${activeOrganizationSlug}/dashboard`, req.url));
-  }
-
-  // Allow authenticated users to access onboarding
-  if (isAuthenticated && isOnboardingRoute(req)) {
-    return NextResponse.next();
+  // Redirect authenticated users away from public root/auth pages to the dashboard
+  if (isAuthenticated && (isRootRoute(req) || isAuthRoute(req))) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 
   // Redirect unauthenticated users trying to access protected routes
@@ -102,16 +89,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  // Redirect authenticated users without organization to onboarding
-  if (isAuthenticated && !activeOrganizationSlug) {
-    // Prevent redirect loop - only redirect if not already on onboarding
-    if (!isOnboardingRoute(req)) {
-      return NextResponse.redirect(new URL('/onboarding', req.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Allow all other requests for authenticated users
+  // Allow all other requests
   return NextResponse.next();
 }
 

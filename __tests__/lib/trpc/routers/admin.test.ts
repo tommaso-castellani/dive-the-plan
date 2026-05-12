@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockTRPCContext } from '@/__tests__/setup/mocks';
 
 import { createCaller } from '@/lib/trpc/server';
-import { USER_ROLES } from '@/lib/types/organization';
+import { USER_ROLES } from '@/lib/types/user';
 
 vi.mock('@/lib/auth/providers', () => ({
   auth: {
@@ -42,7 +42,7 @@ describe('Admin Router', () => {
     ({ db } = await import('@/lib/db/drizzle'));
   });
 
-  describe('superAdminProcedure authorization', () => {
+  describe('adminProcedure authorization', () => {
     it('allows admin users to access admin routes', async () => {
       const ctx = await createMockTRPCContext({
         userId: adminUserId,
@@ -259,12 +259,12 @@ describe('Admin Router', () => {
       caller = await createCaller(ctx);
     });
 
-    it('deletes a user when they are not a sole owner', async () => {
-      // Mock validateUserDeletion query - user is not a sole owner
+    it('deletes a user', async () => {
+      // Mock validateUserDeletion query - user exists
       const mockSelect = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]), // User is not an owner of any org
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ id: testUserId }]),
           }),
         }),
       });
@@ -275,45 +275,28 @@ describe('Admin Router', () => {
 
       await caller.admin.users.delete({ id: testUserId });
 
-      expect(auth.api.revokeUserSessions).toHaveBeenCalledWith({
+      expect(auth.api.removeUser).toHaveBeenCalledWith({
         body: { userId: testUserId },
         headers: expect.any(Object),
       });
-      expect(auth.api.removeUser).toHaveBeenCalledWith({
+      expect(auth.api.revokeUserSessions).toHaveBeenCalledWith({
         body: { userId: testUserId },
         headers: expect.any(Object),
       });
     });
 
-    it('throws error when user is sole owner of an organization', async () => {
-      // Mock validateUserDeletion query - user is sole owner
-      const ownerMemberships = [
-        {
-          organizationId: 'org-123',
-          organizationName: 'Test Org',
-          role: 'owner',
-        },
-      ];
-
-      const mockSelect1 = vi.fn().mockReturnValue({
+    it('throws error when user does not exist', async () => {
+      // Mock validateUserDeletion query - user not found
+      const mockSelect = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
-          innerJoin: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(ownerMemberships),
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
           }),
         }),
       });
+      db.select.mockReturnValue(mockSelect());
 
-      const mockSelect2 = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([{ count: 1 }]), // sole owner
-        }),
-      });
-
-      db.select.mockReturnValueOnce(mockSelect1()).mockReturnValueOnce(mockSelect2());
-
-      await expect(caller.admin.users.delete({ id: testUserId })).rejects.toThrow(
-        'Cannot delete user: they are the sole owner of 1 organization(s): Test Org'
-      );
+      await expect(caller.admin.users.delete({ id: testUserId })).rejects.toThrow();
 
       // Should not call removeUser if validation fails
       expect(auth.api.removeUser).not.toHaveBeenCalled();

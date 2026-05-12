@@ -66,14 +66,14 @@ describe('useChatSession', () => {
   const mockSessions = [
     {
       id: 'session_1',
-      organizationId: 'org_123',
+      userId: 'user_123',
       title: 'Technical Discussion',
       createdAt: new Date('2025-01-15'),
       updatedAt: new Date('2025-01-15'),
     },
     {
       id: 'session_2',
-      organizationId: 'org_123',
+      userId: 'user_123',
       title: 'Product Planning',
       createdAt: new Date('2025-01-20'),
       updatedAt: new Date('2025-01-20'),
@@ -86,10 +86,6 @@ describe('useChatSession', () => {
     page: 1,
     pageSize: 50,
     totalPages: 1,
-  };
-
-  const defaultOptions = {
-    organizationId: 'org_123',
   };
 
   beforeEach(() => {
@@ -131,7 +127,7 @@ describe('useChatSession', () => {
   );
 
   it('should fetch chat sessions successfully', async () => {
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.sessions).toEqual(mockSessions);
@@ -142,7 +138,7 @@ describe('useChatSession', () => {
   it('should create session successfully', async () => {
     const mockNewSession = {
       id: 'session_new',
-      organizationId: 'org_123',
+      userId: 'user_123',
       title: 'New Chat',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -159,14 +155,13 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     const newSession = await result.current.createSession({
       title: 'New Chat',
     });
 
     expect(mockMutateAsync).toHaveBeenCalledWith({
-      organizationId: 'org_123',
       title: 'New Chat',
     });
 
@@ -183,7 +178,7 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await result.current.createSession({ title: 'New Chat' });
 
@@ -205,13 +200,12 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await result.current.deleteSession('session_1');
 
     expect(mockMutateAsync).toHaveBeenCalledWith({
       chatSessionId: 'session_1',
-      organizationId: 'org_123',
     });
 
     expect(mockToast).toHaveBeenCalledWith({
@@ -230,7 +224,7 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await result.current.deleteSession('session_1');
 
@@ -252,13 +246,12 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await result.current.updateChatSession('session_1', 'Updated Title');
 
     expect(mockMutateAsync).toHaveBeenCalledWith({
       chatSessionId: 'session_1',
-      organizationId: 'org_123',
       title: 'Updated Title',
     });
 
@@ -274,7 +267,7 @@ describe('useChatSession', () => {
       isPending: false,
     });
 
-    const { result } = renderHook(() => useChatSession(defaultOptions), { wrapper });
+    const { result } = renderHook(() => useChatSession(), { wrapper });
 
     await result.current.updateChatSession('session_1', 'Updated Title');
 
@@ -283,34 +276,6 @@ describe('useChatSession', () => {
       description: 'Failed to update session',
       variant: 'destructive',
     });
-  });
-
-  it('should not fetch sessions when organizationId is missing', () => {
-    const invalidOptions = {
-      organizationId: '',
-    };
-
-    (trpc.chat.listSessions.useQuery as Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useChatSession(invalidOptions), { wrapper });
-
-    expect(trpc.chat.listSessions.useQuery).toHaveBeenCalledWith(
-      {
-        organizationId: '',
-        page: 1,
-        pageSize: 50,
-      },
-      expect.objectContaining({
-        enabled: false,
-      })
-    );
-
-    expect(result.current.sessions).toEqual([]);
   });
 });
 
@@ -344,7 +309,6 @@ describe('useChat', () => {
 
   const defaultSessionOptions = {
     chatSessionId: 'session_1',
-    organizationId: 'org_123',
   };
 
   beforeEach(() => {
@@ -393,7 +357,6 @@ describe('useChat', () => {
   it('should not fetch messages when chatSessionId is missing', () => {
     const invalidOptions = {
       chatSessionId: '',
-      organizationId: 'org_123',
     };
 
     (trpc.chat.getMessages.useQuery as Mock).mockReturnValue({
@@ -408,35 +371,6 @@ describe('useChat', () => {
     expect(trpc.chat.getMessages.useQuery).toHaveBeenCalledWith(
       {
         chatSessionId: '',
-        organizationId: 'org_123',
-      },
-      expect.objectContaining({
-        enabled: false,
-      })
-    );
-
-    expect(result.current.messages).toEqual([]);
-  });
-
-  it('should not fetch messages when organizationId is missing', () => {
-    const invalidOptions = {
-      chatSessionId: 'session_1',
-      organizationId: '',
-    };
-
-    (trpc.chat.getMessages.useQuery as Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useChat(invalidOptions), { wrapper });
-
-    expect(trpc.chat.getMessages.useQuery).toHaveBeenCalledWith(
-      {
-        chatSessionId: 'session_1',
-        organizationId: '',
       },
       expect.objectContaining({
         enabled: false,

@@ -3,13 +3,7 @@
  * Client-side auth utilities
  * See: https://www.better-auth.com/docs/integrations/next
  */
-import {
-  adminClient,
-  emailOTPClient,
-  inferAdditionalFields,
-  inferOrgAdditionalFields,
-  organizationClient,
-} from 'better-auth/client/plugins';
+import { adminClient, emailOTPClient, inferAdditionalFields } from 'better-auth/client/plugins';
 import { customSessionClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
@@ -23,11 +17,10 @@ const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_APP_URL,
   plugins: [
     emailOTPClient(),
-    organizationClient({ schema: inferOrgAdditionalFields<typeof auth>() }),
     inferAdditionalFields<typeof auth>(),
     customSessionClient<typeof auth>(),
     adminClient(),
   ],
 });
 
-export const { useSession, signIn, signOut, emailOtp, organization } = authClient;
+export const { useSession, signIn, signOut, emailOtp } = authClient;

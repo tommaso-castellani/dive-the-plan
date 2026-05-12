@@ -4,29 +4,12 @@
  */
 
 // User-related types
-export type { NotificationSettings } from './user';
-
-export type { TaskPriority } from './task';
-
-// Order-related types
-export type {
-  // Base types
-  NewOrder,
-  OrderStatus,
-} from '@/lib/db/schema';
-
-// Organization-related types
-export type {
-  // Base types
-  Organization,
-
-  // Role types
-  OrgRoleValue,
-} from './organization';
+export type { NotificationSettings, UserRole } from './user';
+export { USER_ROLES } from './user';
 
 // Billing and subscription types
 export type {
-  OrgSubscriptionInfo,
+  UserSubscriptionInfo,
   OperationResult,
   SubscriptionEligibility,
   CheckoutSessionParams,
@@ -37,9 +20,6 @@ export { SubscriptionState } from './billing';
 
 // Document and Chat types
 export type { DocumentWithUser } from './documents';
-
-// RAG types
-export type { FileSearchStore } from './rag';
 
 // Note: API types are now handled by lib/api module
 // Import from '@/lib/api' for API-related types and utilities

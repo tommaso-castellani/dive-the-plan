@@ -11,28 +11,21 @@ import { useToast } from '@/hooks/use-toast';
 
 import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 
-interface UseChatSessionOptions {
-  organizationId: string;
-}
-
 interface UseChatOptions {
   chatSessionId: string;
-  organizationId: string;
 }
 
-export function useChatSession(options: UseChatSessionOptions) {
+export function useChatSession() {
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
   const sessionsQuery = trpc.chat.listSessions.useQuery(
     {
-      organizationId: options.organizationId,
       page: 1,
       pageSize: 50,
     },
     {
       staleTime: 1000 * 60 * 2, // 2 minutes
-      enabled: !!options.organizationId,
     }
   );
 
@@ -81,7 +74,6 @@ export function useChatSession(options: UseChatSessionOptions) {
 
   const createSession = async ({ title }: { title?: string }) => {
     return createSessionMutation.mutateAsync({
-      organizationId: options.organizationId,
       title,
     });
   };
@@ -89,14 +81,12 @@ export function useChatSession(options: UseChatSessionOptions) {
   const deleteSession = async (chatSessionId: string) => {
     await deleteSessionMutation.mutateAsync({
       chatSessionId,
-      organizationId: options.organizationId,
     });
   };
 
   const updateChatSession = async (chatSessionId: string, title: string) => {
     await updateSessionMutation.mutateAsync({
       chatSessionId,
-      organizationId: options.organizationId,
       title,
     });
   };
@@ -113,16 +103,16 @@ export function useChatSession(options: UseChatSessionOptions) {
 }
 
 export function useChat(options: UseChatOptions) {
-  const { chatSessionId, organizationId } = options;
+  const { chatSessionId } = options;
   const { toast } = useToast();
 
   const utils = trpc.useUtils();
   const [input, setInput] = useState('');
 
   const { data: messagesData } = trpc.chat.getMessages.useQuery(
-    { chatSessionId, organizationId },
+    { chatSessionId },
     {
-      enabled: !!chatSessionId && !!organizationId,
+      enabled: !!chatSessionId,
       staleTime: 1000 * 30,
     }
   );
@@ -132,10 +122,10 @@ export function useChat(options: UseChatOptions) {
     messages: messagesData?.messages ?? [],
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      body: { organizationId, chatSessionId },
+      body: { chatSessionId },
     }),
     onFinish: () => {
-      utils.chat.getMessages.invalidate({ chatSessionId, organizationId });
+      utils.chat.getMessages.invalidate({ chatSessionId });
     },
     onError: (error: Error) => {
       // Parse error message - AI SDK may pass JSON string from API error responses
