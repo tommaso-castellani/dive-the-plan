@@ -141,12 +141,7 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             </div>
           </div>
 
-          <Button
-            onClick={handleCalculate}
-            disabled={!requiredFilled}
-            className="w-full"
-            size="lg"
-          >
+          <Button onClick={handleCalculate} disabled={!requiredFilled} className="w-full" size="lg">
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>

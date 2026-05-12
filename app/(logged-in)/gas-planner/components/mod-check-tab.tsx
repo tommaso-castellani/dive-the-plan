@@ -40,8 +40,7 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
 
   const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
   const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
-  const mixIsValid =
-    gasEntered && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
+  const mixIsValid = gasEntered && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
   const canCalculate =
     mixIsValid &&
     Number.isFinite(targetPpO2) &&

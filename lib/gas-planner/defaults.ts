@@ -8,7 +8,6 @@
  * Note: gas composition (O₂/He) and depth are *not* defaulted here —
  * those are dive-specific and must always be entered by the user.
  */
-
 import type { DivingMode } from './calculations';
 
 export const GAS_PLANNER_DEFAULTS = {
