@@ -13,12 +13,11 @@ import {
 import { GAS_PLANNER_DEFAULTS, defaultPpO2 } from '@/lib/gas-planner/defaults';
 import { cn } from '@/lib/utils';
 
+import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-
-import { NumberField } from './number-field';
 
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
