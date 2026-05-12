@@ -13,9 +13,10 @@ import { GAS_PLANNER_DEFAULTS } from '@/lib/gas-planner/defaults';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+
+import { NumberField } from './number-field';
 
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
@@ -34,6 +35,8 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
   const [result, setResult] = useState<GasCheckResult | null>(null);
 
   // Live N2 readout — only meaningful once both gas fractions are entered.
+  // Treat empty (NaN) O₂/He fields as "incomplete" rather than "invalid mix"
+  // so the message reflects what the user actually did.
   const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
   const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
   const isMixInvalid =
@@ -164,47 +167,6 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : NaN);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ResultsEmpty() {
   return (

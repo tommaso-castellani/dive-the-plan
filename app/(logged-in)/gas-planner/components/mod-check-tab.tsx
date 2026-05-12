@@ -15,9 +15,10 @@ import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+
+import { NumberField } from './number-field';
 
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
@@ -38,6 +39,8 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
   const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<MODCheckResult | null>(null);
 
+  // Distinguish "empty input" from "explicitly invalid mix" so the readout is
+  // honest while the user is still filling fields in.
   const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
   const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
   const mixIsValid = gasEntered && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
@@ -201,47 +204,6 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : NaN);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ResultsEmpty() {
   return (
