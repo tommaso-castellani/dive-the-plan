@@ -1,5 +1,5 @@
 import {
-  OrgSubscriptionInfo,
+  UserSubscriptionInfo,
   calculateSubscriptionState,
   getSubscriptionEligibility,
 } from '@/lib/billing';
@@ -97,7 +97,7 @@ describe('Subscription Eligibility Business Logic', () => {
       tier: SubscriptionTierType,
       status: SubscriptionStatus | null,
       currentPeriodEnd: Date | null = null
-    ): OrgSubscriptionInfo => ({
+    ): UserSubscriptionInfo => ({
       tier,
       status,
       currentPeriodEnd,

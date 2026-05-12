@@ -1,4 +1,4 @@
-import type { OrgSubscription, SubscriptionStatus, SubscriptionTierType } from '@/lib/db/schema';
+import type { SubscriptionStatus, SubscriptionTierType, UserSubscription } from '@/lib/db/schema';
 
 // Enhanced subscription state enum for better state management
 export enum SubscriptionState {
@@ -22,16 +22,16 @@ export interface SubscriptionEligibility {
   reason?: string;
 }
 
-export interface OrgSubscriptionInfo {
+export interface UserSubscriptionInfo {
   tier: SubscriptionTierType;
   status: SubscriptionStatus | null;
   currentPeriodEnd: Date | null;
-  activeSubscription: OrgSubscription | null;
+  activeSubscription: UserSubscription | null;
 }
 
 export interface CheckoutSessionParams {
   tier: SubscriptionTierType; // Lookup key (e.g., 'free_monthly', 'pro_monthly')
-  organizationId: string;
+  userId: string;
   customerEmail: string;
   metadata?: Record<string, string>;
   redirectUrl?: string;

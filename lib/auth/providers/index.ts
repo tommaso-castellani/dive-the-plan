@@ -5,19 +5,16 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
-import { admin, emailOTP, organization } from 'better-auth/plugins';
-import { and, desc, eq } from 'drizzle-orm';
+import { admin, emailOTP } from 'better-auth/plugins';
 
 import { TEST_OTP } from '@/lib/auth/constants';
 import { isTestEmail } from '@/lib/auth/utils';
 import { db } from '@/lib/db/drizzle';
 import * as schema from '@/lib/db/schema';
-import { orgMemberships, organizations } from '@/lib/db/schema';
 import { removeContactFromMarketingSegment } from '@/lib/email';
-import { sendInvitationEmail } from '@/lib/email/invitation';
 import { sendOTPEmail } from '@/lib/email/otp';
 import { redis } from '@/lib/redis';
-import { getUserByEmail, getUserById } from '@/lib/services';
+import { getUserById } from '@/lib/services';
 import { handleSignUpMarketingConsent } from '@/lib/services/notification-service';
 
 /**
@@ -32,9 +29,6 @@ export const auth = betterAuth({
       session: schema.sessions,
       verification: schema.verifications,
       account: schema.accounts,
-      organization: schema.organizations,
-      member: schema.orgMemberships,
-      invitation: schema.invitations,
     },
   }),
   secondaryStorage: {
@@ -106,69 +100,6 @@ export const auth = betterAuth({
         },
       },
     },
-    session: {
-      create: {
-        before: async (session) => {
-          const [membership] = await db
-            .select({
-              organizationId: orgMemberships.organizationId,
-              organizationSlug: organizations.slug,
-              role: orgMemberships.role,
-            })
-            .from(orgMemberships)
-            .innerJoin(organizations, eq(orgMemberships.organizationId, organizations.id))
-            .where(eq(orgMemberships.userId, session.userId))
-            .orderBy(desc(orgMemberships.createdAt))
-            .limit(1);
-
-          return {
-            data: {
-              ...session,
-              activeOrganizationId: membership?.organizationId ?? null,
-              activeOrganizationSlug: membership?.organizationSlug ?? null,
-              activeOrganizationRole: membership?.role ?? null,
-            },
-          };
-        },
-      },
-      update: {
-        before: async (session, ctx) => {
-          if (session.activeOrganizationId !== undefined) {
-            const orgId = session.activeOrganizationId as string | null | undefined;
-
-            // Get userId from the context (full session from Redis) or from the update payload
-            const userId = ctx?.context?.session?.user?.id ?? session.userId;
-
-            if (orgId && userId) {
-              const [org] = await db
-                .select({ slug: organizations.slug, role: orgMemberships.role })
-                .from(organizations)
-                .innerJoin(orgMemberships, eq(orgMemberships.organizationId, organizations.id))
-                .where(and(eq(organizations.id, orgId), eq(orgMemberships.userId, userId)))
-                .limit(1);
-
-              return {
-                data: {
-                  ...session,
-                  activeOrganizationSlug: org?.slug ?? null,
-                  activeOrganizationRole: org?.role ?? null,
-                },
-              };
-            } else {
-              return {
-                data: {
-                  ...session,
-                  activeOrganizationSlug: null,
-                  activeOrganizationRole: null,
-                },
-              };
-            }
-          }
-
-          return { data: session };
-        },
-      },
-    },
   },
   user: {
     // map custom fields displayName and profileImageUrl to match what's expected by Better Auth
@@ -179,20 +110,6 @@ export const auth = betterAuth({
   },
   session: {
     storeSessionInDatabase: false,
-    additionalFields: {
-      activeOrganizationId: {
-        type: 'string',
-        nullable: true,
-      },
-      activeOrganizationSlug: {
-        type: 'string',
-        nullable: true,
-      },
-      activeOrganizationRole: {
-        type: 'string',
-        nullable: true,
-      },
-    },
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5, // 5 minutes - cache session in cookie to avoid Redis lookups
@@ -206,18 +123,6 @@ export const auth = betterAuth({
     sendOnSignUp: true,
   },
   plugins: [
-    organization({
-      async sendInvitationEmail(data) {
-        const user = await getUserByEmail(data.invitation.email);
-
-        const acceptInvitationUrl = `/api/accept-invitation/${data.id}`;
-        const inviteLink = user
-          ? `${process.env.NEXT_PUBLIC_APP_URL}${acceptInvitationUrl}`
-          : `${process.env.NEXT_PUBLIC_APP_URL}/sign-up?redirect=${encodeURIComponent(acceptInvitationUrl)}`;
-
-        await sendInvitationEmail({ ...data, inviteLink });
-      },
-    }),
     emailOTP({
       overrideDefaultEmailVerification: true,
       sendVerificationOTP: async ({ email, otp, type }) => {

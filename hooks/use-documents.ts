@@ -16,21 +16,19 @@ type DocumentsListQueryParams = RouterInput['documents']['list'];
 
 const DOCUMENT_STATUS_POLL_INTERVAL = 3000;
 
-export function useDocuments(options: DocumentsListQueryParams) {
+export function useDocuments(options: DocumentsListQueryParams = {}) {
   const { toast } = useToast();
   const utils = trpc.useUtils();
   const trackedDocumentsRef = useRef<Set<string>>(new Set());
 
   const { data, isLoading, error, refetch } = trpc.documents.list.useQuery(
     {
-      organizationId: options.organizationId,
       searchQuery: options.searchQuery,
       page: options.page,
       pageSize: options.pageSize,
     },
     {
       staleTime: 1000 * 60 * 2, // 2 minutes
-      enabled: !!options.organizationId,
       placeholderData: (previousData) => previousData,
       refetchInterval: (query) => {
         const documents = query.state.data?.documents || [];
@@ -112,7 +110,6 @@ export function useDocuments(options: DocumentsListQueryParams) {
     const { file, displayName, fileData } = params;
 
     await uploadMutation.mutateAsync({
-      organizationId: options.organizationId,
       displayName,
       mimeType: file.type,
       sizeBytes: file.size.toString(),
@@ -124,7 +121,6 @@ export function useDocuments(options: DocumentsListQueryParams) {
     try {
       const result = await utils.documents.getDownloadUrl.fetch({
         id: documentId,
-        organizationId: options.organizationId,
       });
 
       downloadFromUrl(result.url, result.displayName);

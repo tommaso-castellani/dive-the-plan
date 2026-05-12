@@ -13,15 +13,6 @@ import {
 } from 'drizzle-orm/pg-core';
 
 // Enums
-export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high']);
-export const orgRoleEnum = pgEnum('org_role', ['owner', 'admin', 'member']);
-export const orderStatusEnum = pgEnum('order_status', [
-  'pending',
-  'processing',
-  'shipped',
-  'delivered',
-  'cancelled',
-]);
 export const chatMessageRoleEnum = pgEnum('chat_message_role', ['user', 'assistant', 'system']);
 export const documentStatusEnum = pgEnum('document_status', ['in_progress', 'ready', 'error']);
 
@@ -32,6 +23,7 @@ export const users = pgTable('users', {
   displayName: text('display_name').notNull(),
   profileImageUrl: text('profile_image_url'),
   notificationSettings: text('notification_settings'), // JSON string for notification preferences
+  stripeCustomerId: text('stripe_customer_id').unique(), // Stripe customer ID for per-user billing
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -57,13 +49,6 @@ export const sessions = pgTable('sessions', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  activeOrganizationId: uuid('active_organization_id').references(() => organizations.id, {
-    onDelete: 'set null',
-  }),
-  activeOrganizationSlug: text('active_organization_slug').references(() => organizations.slug, {
-    onDelete: 'set null',
-  }),
-  activeOrganizationRole: orgRoleEnum('active_organization_role'),
 });
 
 export const accounts = pgTable(
@@ -122,73 +107,17 @@ export const systemConfig = pgTable(
   (table) => [index('system_config_key_idx').on(table.key)]
 );
 
-export const organizations = pgTable('organizations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  stripeCustomerId: text('stripe_customer_id').unique(), // Stripe customer ID for org-level billing
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-  logo: text('logo'), // TODO make nullable
-  metadata: text('metadata'),
-});
-
-// Organization Memberships - Links users to organizations
-export const orgMemberships = pgTable(
-  'org_memberships',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id')
-      .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    role: orgRoleEnum('role').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (table) => [
-    index('org_memberships_organizationId_idx').on(table.organizationId),
-    index('org_memberships_userId_idx').on(table.userId),
-  ]
-);
-
-export const invitations = pgTable(
-  'invitations',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id')
-      .notNull()
-      .references(() => organizations.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
-    role: orgRoleEnum('role').notNull(),
-    status: text('status').default('pending').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    inviterId: uuid('inviter_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-  },
-  (table) => [
-    index('invitations_organizationId_idx').on(table.organizationId),
-    index('invitations_email_idx').on(table.email),
-  ]
-);
-
-// Organization Subscriptions
-export const orgSubscriptions = pgTable('org_subscriptions', {
+// User Subscriptions - One subscription per user (Stripe-managed billing)
+export const userSubscriptions = pgTable('user_subscriptions', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  userId: uuid('user_id')
     .notNull()
-    .unique() // Enforce one subscription per organization at database level
-    .references(() => organizations.id, {
+    .unique() // Enforce one subscription per user at database level
+    .references(() => users.id, {
       onDelete: 'cascade',
     }),
   stripeSubscriptionId: text('stripe_subscription_id').unique(), // Stripe subscription ID (nullable for free tier)
-  stripeCustomerId: text('stripe_customer_id'), // Stripe customer ID (references org's customer)
+  stripeCustomerId: text('stripe_customer_id'), // Stripe customer ID (references user's customer)
   stripePriceId: text('stripe_price_id'), // Stripe price ID (nullable for free tier)
   status: text('status').notNull(), // 'active', 'canceled', 'past_due', 'unpaid', 'incomplete'
   tier: text('tier').notNull(), // Stores Stripe lookup_key (e.g., 'free_monthly', 'pro_monthly', 'business_monthly')
@@ -214,72 +143,12 @@ export const activityLogs = pgTable('activity_logs', {
   metadata: text('metadata'), // JSON string for additional context
 });
 
-// Tasks - Simple todo list functionality with organization support
-export const tasks = pgTable('tasks', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull(),
-  organizationId: uuid('organization_id').references(() => organizations.id, {
-    onDelete: 'cascade',
-  }), // Nullable for personal tasks
-  title: text('title').notNull(),
-  description: text('description'),
-  completed: text('completed').notNull().default('false'), // 'true' or 'false' as text
-  priority: taskPriorityEnum('priority').notNull().default('medium'),
-  dueDate: timestamp('due_date'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
-// Orders - Customer orders with organization support
-export const orders = pgTable('orders', {
-  id: uuid('id').defaultRandom().primaryKey(), // Serves as both ID and order number
-  customerName: text('customer_name').notNull(),
-  userId: uuid('user_id').notNull(),
-  organizationId: uuid('organization_id')
-    .notNull()
-    .references(() => organizations.id, {
-      onDelete: 'cascade',
-    }), // Orders always belong to an organization
-  status: orderStatusEnum('status').notNull().default('pending'),
-  amount: text('amount').notNull(), // Stored as text to preserve decimal precision (e.g., "1250.50")
-  currency: text('currency').notNull().default('USD'),
-  orderDate: timestamp('order_date').notNull().defaultNow(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-
-// Order History - Tracks all status changes and updates to orders
-export const orderHistory = pgTable('order_history', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  orderId: uuid('order_id')
-    .notNull()
-    .references(() => orders.id, {
-      onDelete: 'cascade',
-    }),
-  userId: uuid('user_id'), // User who made the change (nullable for external/automated updates)
-  status: orderStatusEnum('status').notNull(), // Status at this point in history
-  notes: text('notes'), // Optional notes about the change
-  createdAt: timestamp('created_at').defaultNow().notNull(), // When this status was set
-});
-
-// Documents - Files uploaded to Google File Search Store
+// Documents - Files uploaded to Google File Search Store (per-user)
 export const documents = pgTable('documents', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
-    .notNull()
-    .references(() => organizations.id, {
-      onDelete: 'cascade',
-    }),
   userId: uuid('user_id')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   displayName: text('display_name').notNull(),
   // Google Document resource identifier (format: fileSearchStores/*/documents/*) - used for deletion
   documentResourceName: text('document_resource_name'), // Nullable until File Search upload completes
@@ -295,13 +164,13 @@ export const documents = pgTable('documents', {
     .notNull(),
 });
 
+// RAG Settings - Per-user RAG/AI configuration
 export const ragSettings = pgTable('rag_settings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  userId: uuid('user_id')
     .notNull()
-    .references(() => organizations.id, {
-      onDelete: 'cascade',
-    }),
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
   systemPrompt: text('system_prompt'),
   maxOutputTokens: integer('max_output_tokens'),
   temperature: real('temperature'),
@@ -314,14 +183,9 @@ export const ragSettings = pgTable('rag_settings', {
     .notNull(),
 });
 
-// Chat Sessions - Conversation sessions with documents
+// Chat Sessions - Conversation sessions with documents (per-user)
 export const chatSessions = pgTable('chat_sessions', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
-    .notNull()
-    .references(() => organizations.id, {
-      onDelete: 'cascade',
-    }),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, {
@@ -370,9 +234,6 @@ export const llmLogs = pgTable(
     errorMessage: text('error_message'),
     generationConfig: text('generation_config'), // JSON string of generationConfig from request
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-    organizationId: uuid('organization_id').references(() => organizations.id, {
-      onDelete: 'set null',
-    }),
     chatSessionId: uuid('chat_session_id').references(() => chatSessions.id, {
       onDelete: 'set null',
     }),
@@ -382,15 +243,22 @@ export const llmLogs = pgTable(
     index('idx_llm_logs_timestamp').on(table.timestamp.desc()),
     index('idx_llm_logs_endpoint').on(table.endpoint),
     index('idx_llm_logs_user_id').on(table.userId),
-    index('idx_llm_logs_org_id').on(table.organizationId),
     index('idx_llm_logs_chat_session_id').on(table.chatSessionId),
   ]
 );
 
-export const userRelations = relations(users, ({ many }) => ({
+export const userRelations = relations(users, ({ many, one }) => ({
   accounts: many(accounts),
-  members: many(orgMemberships),
-  invitations: many(invitations),
+  documents: many(documents),
+  chatSessions: many(chatSessions),
+  subscription: one(userSubscriptions, {
+    fields: [users.id],
+    references: [userSubscriptions.userId],
+  }),
+  ragSettings: one(ragSettings, {
+    fields: [users.id],
+    references: [ragSettings.userId],
+  }),
 }));
 
 export const accountRelations = relations(accounts, ({ one }) => ({
@@ -400,38 +268,7 @@ export const accountRelations = relations(accounts, ({ one }) => ({
   }),
 }));
 
-export const organizationRelations = relations(organizations, ({ many }) => ({
-  members: many(orgMemberships),
-  invitations: many(invitations),
-}));
-
-export const memberRelations = relations(orgMemberships, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [orgMemberships.organizationId],
-    references: [organizations.id],
-  }),
-  user: one(users, {
-    fields: [orgMemberships.userId],
-    references: [users.id],
-  }),
-}));
-
-export const invitationRelations = relations(invitations, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [invitations.organizationId],
-    references: [organizations.id],
-  }),
-  user: one(users, {
-    fields: [invitations.inviterId],
-    references: [users.id],
-  }),
-}));
-
 export const documentRelations = relations(documents, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [documents.organizationId],
-    references: [organizations.id],
-  }),
   user: one(users, {
     fields: [documents.userId],
     references: [users.id],
@@ -439,10 +276,6 @@ export const documentRelations = relations(documents, ({ one }) => ({
 }));
 
 export const chatSessionRelations = relations(chatSessions, ({ one, many }) => ({
-  organization: one(organizations, {
-    fields: [chatSessions.organizationId],
-    references: [organizations.id],
-  }),
   user: one(users, {
     fields: [chatSessions.userId],
     references: [users.id],
@@ -457,10 +290,17 @@ export const chatMessageRelations = relations(chatMessages, ({ one }) => ({
   }),
 }));
 
-export const orgSubscriptionRelations = relations(orgSubscriptions, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [orgSubscriptions.organizationId],
-    references: [organizations.id],
+export const userSubscriptionRelations = relations(userSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSubscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const ragSettingsRelations = relations(ragSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [ragSettings.userId],
+    references: [users.id],
   }),
 }));
 
@@ -490,12 +330,6 @@ export enum ActivityType {
   SUBSCRIPTION_CREATED = 'subscription_created',
   SUBSCRIPTION_UPDATED = 'subscription_updated',
   SUBSCRIPTION_CANCELED = 'subscription_canceled',
-  ORG_CREATED = 'org_created',
-  ORG_UPDATED = 'org_updated',
-  ORG_DELETED = 'org_deleted',
-  ORG_MEMBER_ADDED = 'org_member_added',
-  ORG_MEMBER_REMOVED = 'org_member_removed',
-  ORG_MEMBER_ROLE_UPDATED = 'org_member_role_updated',
 }
 
 // Types (derive from Drizzle schema to avoid Zod instance mismatches)
@@ -505,20 +339,10 @@ export type Session = InferSelectModel<typeof sessions>;
 export type NewSession = InferInsertModel<typeof sessions>;
 export type Verification = InferSelectModel<typeof verifications>;
 export type NewVerification = InferInsertModel<typeof verifications>;
-export type OrgSubscription = InferSelectModel<typeof orgSubscriptions>;
-export type NewOrgSubscription = InferInsertModel<typeof orgSubscriptions>;
+export type UserSubscription = InferSelectModel<typeof userSubscriptions>;
+export type NewUserSubscription = InferInsertModel<typeof userSubscriptions>;
 export type ActivityLog = InferSelectModel<typeof activityLogs>;
 export type NewActivityLog = InferInsertModel<typeof activityLogs>;
-export type Task = InferSelectModel<typeof tasks>;
-export type NewTask = InferInsertModel<typeof tasks>;
-export type Organization = InferSelectModel<typeof organizations>;
-export type NewOrganization = InferInsertModel<typeof organizations>;
-export type OrgMembership = InferSelectModel<typeof orgMemberships>;
-export type NewOrgMembership = InferInsertModel<typeof orgMemberships>;
-export type Order = InferSelectModel<typeof orders>;
-export type NewOrder = InferInsertModel<typeof orders>;
-export type OrderHistory = InferSelectModel<typeof orderHistory>;
-export type NewOrderHistory = InferInsertModel<typeof orderHistory>;
 export type Document = InferSelectModel<typeof documents>;
 export type NewDocument = InferInsertModel<typeof documents>;
 export type ChatSession = InferSelectModel<typeof chatSessions>;
@@ -530,14 +354,11 @@ export type NewLLMLog = InferInsertModel<typeof llmLogs>;
 export type RagSettings = InferSelectModel<typeof ragSettings>;
 export type NewRagSettings = Pick<
   InferInsertModel<typeof ragSettings>,
-  'organizationId' | 'systemPrompt' | 'maxOutputTokens' | 'temperature' | 'topP' | 'topK'
+  'userId' | 'systemPrompt' | 'maxOutputTokens' | 'temperature' | 'topP' | 'topK'
 >;
 export type SystemConfig = InferSelectModel<typeof systemConfig>;
 export type NewSystemConfig = InferInsertModel<typeof systemConfig>;
 
 // Infer enum types from schema
-export type TaskPriority = (typeof taskPriorityEnum.enumValues)[number];
-export type OrgRole = (typeof orgRoleEnum.enumValues)[number];
-export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];
 export type ChatMessageRole = (typeof chatMessageRoleEnum.enumValues)[number];
 export type DocumentStatus = (typeof documentStatusEnum.enumValues)[number];

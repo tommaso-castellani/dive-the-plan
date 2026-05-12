@@ -4,9 +4,7 @@ import { Calendar, CheckCircle, CreditCard, Loader2, RotateCcw, XCircle } from '
 
 import { SubscriptionTier } from '@/lib/db/schema';
 import { trpc } from '@/lib/trpc/client';
-import { ORG_ROLES } from '@/lib/types/organization';
 
-import { useOrganization } from '@/hooks/use-organization';
 import { useSubscriptionActions } from '@/hooks/use-subscription-actions';
 import {
   useCanSubscribe,
@@ -35,7 +33,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Page-specific skeleton for billing page
 function BillingSkeleton() {
@@ -143,15 +140,12 @@ function BillingSkeleton() {
 export default function BillingPage() {
   const { user } = useUser();
   const { toast } = useToast();
-  const { currentUserRole } = useOrganization();
   const { data: stripeConfig, isLoading: isLoadingConfig } = useStripeConfigured();
   const { data: subscriptionInfo, isLoading: isLoadingStatus } = useSubscriptionStatus();
   const { data: eligibility, isLoading: isLoadingEligibility } = useCanSubscribe();
   const { data: pricingData, isLoading: isLoadingPricing } = usePricingData();
   const isLoading = isLoadingConfig || isLoadingStatus || isLoadingEligibility || isLoadingPricing;
 
-  // Check if user is owner (can manage billing)
-  const isOwner = currentUserRole === ORG_ROLES.OWNER;
   const {
     handleUpgrade,
     handleCancel,
@@ -343,38 +337,25 @@ export default function BillingPage() {
                     </p>
                   </div>
                 </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          onClick={handleCancelDowngrade}
-                          disabled={isCancelingDowngrade || !isOwner}
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 border-yellow-600 text-yellow-800 hover:bg-yellow-100 dark:border-yellow-500 dark:text-yellow-200 dark:hover:bg-yellow-900"
-                        >
-                          {isCancelingDowngrade ? (
-                            <>
-                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                              Canceling...
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="mr-2 h-3 w-3" />
-                              Cancel Downgrade
-                            </>
-                          )}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {!isOwner && (
-                      <TooltipContent>
-                        <p>Only organization owners can manage billing</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                <Button
+                  onClick={handleCancelDowngrade}
+                  disabled={isCancelingDowngrade}
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 border-yellow-600 text-yellow-800 hover:bg-yellow-100 dark:border-yellow-500 dark:text-yellow-200 dark:hover:bg-yellow-900"
+                >
+                  {isCancelingDowngrade ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Canceling...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="mr-2 h-3 w-3" />
+                      Cancel Downgrade
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}
@@ -400,95 +381,65 @@ export default function BillingPage() {
               <div className="flex flex-wrap gap-2">
                 {/* Reactivate Button - Show for canceled subscriptions in grace period (but NOT if there's a scheduled downgrade) */}
                 {showReactivateButton && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <Button
-                            onClick={handleReactivate}
-                            disabled={isReactivating || !isOwner}
-                            variant="default"
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            {isReactivating ? (
-                              <>
-                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                Reactivating...
-                              </>
-                            ) : (
-                              <>
-                                <RotateCcw className="mr-2 h-3 w-3" />
-                                Reactivate
-                              </>
-                            )}
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {!isOwner && (
-                        <TooltipContent>
-                          <p>Only organization owners can manage billing</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Button
+                    onClick={handleReactivate}
+                    disabled={isReactivating}
+                    variant="default"
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isReactivating ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Reactivating...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="mr-2 h-3 w-3" />
+                        Reactivate
+                      </>
+                    )}
+                  </Button>
                 )}
 
                 {/* Cancel Button - Show for active paid plans (but NOT if there's a scheduled downgrade) */}
                 {showCancelButton && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={isCanceling || !isOwner}
-                              >
-                                {isCanceling ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                    Cancelling...
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="mr-2 h-3 w-3" />
-                                    Cancel Subscription
-                                  </>
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  You&apos;ll continue to have access until{' '}
-                                  {formatDate(subscriptionInfo?.currentPeriodEnd)}, then be
-                                  downgraded to the free plan.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={handleCancel}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Cancel Subscription
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </span>
-                      </TooltipTrigger>
-                      {!isOwner && (
-                        <TooltipContent>
-                          <p>Only organization owners can manage billing</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={isCanceling}>
+                        {isCanceling ? (
+                          <>
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="mr-2 h-3 w-3" />
+                            Cancel Subscription
+                          </>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          You&apos;ll continue to have access until{' '}
+                          {formatDate(subscriptionInfo?.currentPeriodEnd)}, then be downgraded to
+                          the free plan.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleCancel}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Cancel Subscription
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </>
@@ -556,47 +507,30 @@ export default function BillingPage() {
                         </ul>
 
                         {!isCurrentPlan && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="w-full">
-                                  <Button
-                                    onClick={() => onUpgrade(tier)}
-                                    disabled={
-                                      !canUpgradeToThisPlan ||
-                                      upgradeLoading === tier ||
-                                      isScheduledDowngrade ||
-                                      !isOwner
-                                    }
-                                    className="mt-auto w-full"
-                                  >
-                                    {isScheduledDowngrade ? (
-                                      <>
-                                        Scheduled for{' '}
-                                        {formatDate(subscriptionInfo?.currentPeriodEnd)}
-                                      </>
-                                    ) : upgradeLoading === tier ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Processing...
-                                      </>
-                                    ) : currentTier === SubscriptionTier.FREE_MONTHLY ? (
-                                      `Subscribe to ${plan.name}`
-                                    ) : isUpgrade ? (
-                                      `Upgrade to ${plan.name}`
-                                    ) : (
-                                      `Downgrade to ${plan.name}`
-                                    )}
-                                  </Button>
-                                </span>
-                              </TooltipTrigger>
-                              {!isOwner && (
-                                <TooltipContent>
-                                  <p>Only organization owners can manage billing</p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
+                          <Button
+                            onClick={() => onUpgrade(tier)}
+                            disabled={
+                              !canUpgradeToThisPlan ||
+                              upgradeLoading === tier ||
+                              isScheduledDowngrade
+                            }
+                            className="mt-auto w-full"
+                          >
+                            {isScheduledDowngrade ? (
+                              <>Scheduled for {formatDate(subscriptionInfo?.currentPeriodEnd)}</>
+                            ) : upgradeLoading === tier ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : currentTier === SubscriptionTier.FREE_MONTHLY ? (
+                              `Subscribe to ${plan.name}`
+                            ) : isUpgrade ? (
+                              `Upgrade to ${plan.name}`
+                            ) : (
+                              `Downgrade to ${plan.name}`
+                            )}
+                          </Button>
                         )}
                       </CardContent>
                     </Card>
@@ -621,39 +555,24 @@ export default function BillingPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {isPaidPlan ? (
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        onClick={() => createPortalSession.mutate()}
-                        disabled={createPortalSession.isPending || !isOwner}
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                      >
-                        {createPortalSession.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Manage Billing in Stripe
-                          </>
-                        )}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!isOwner && (
-                    <TooltipContent>
-                      <p>Only organization owners can manage billing</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            </>
+            <Button
+              onClick={() => createPortalSession.mutate()}
+              disabled={createPortalSession.isPending}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              {createPortalSession.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Manage Billing in Stripe
+                </>
+              )}
+            </Button>
           ) : (
             <p className="text-muted-foreground text-sm">
               You&apos;re currently on the free plan. Upgrade to a paid plan to access advanced

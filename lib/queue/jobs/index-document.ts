@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 
 import { createFileSearchStore, uploadToFileSearchStore } from '@/lib/ai/rag';
 import { db } from '@/lib/db/drizzle';
-import { documents, organizations } from '@/lib/db/schema';
+import { documents, users } from '@/lib/db/schema';
 import type { IndexDocumentJobData } from '@/lib/queue/queues/documents';
 
 export async function processIndexDocument({
@@ -16,7 +16,7 @@ export async function processIndexDocument({
   storageUrl,
   displayName,
   mimeType,
-  organizationId,
+  userId,
   documentId,
 }: IndexDocumentJobData): Promise<{
   success: boolean;
@@ -47,19 +47,19 @@ export async function processIndexDocument({
       fileBuffer = Buffer.from(arrayBuffer);
     }
 
-    // Get organization to check if file search store exists
-    const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, organizationId),
+    // Get user to check it exists
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
     });
 
-    if (!org) {
-      throw new Error('Organization not found');
+    if (!user) {
+      throw new Error('User not found');
     }
 
     let fileSearchStoreName: string;
 
     const existingDoc = await db.query.documents.findFirst({
-      where: eq(documents.organizationId, organizationId),
+      where: eq(documents.userId, userId),
       columns: {
         fileSearchStoreName: true,
       },
@@ -69,7 +69,7 @@ export async function processIndexDocument({
       fileSearchStoreName = existingDoc.fileSearchStoreName;
     } else {
       const store = await createFileSearchStore({
-        displayName: `${org.slug}-documents`,
+        displayName: `user-${userId}-documents`,
       });
       fileSearchStoreName = store.name ?? 'default';
     }
@@ -135,7 +135,7 @@ export async function processIndexDocument({
 
     console.error('[JOB] Document indexing failed:', {
       documentId,
-      organizationId,
+      userId,
       displayName,
       mimeType,
       error: error instanceof Error ? error.message : 'Unknown error',

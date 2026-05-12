@@ -1,17 +1,10 @@
 import { and, count, eq, ilike, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db/drizzle';
-import {
-  type LLMLog,
-  type NewLLMLog,
-  chatSessions,
-  llmLogs,
-  organizations,
-  users,
-} from '@/lib/db/schema';
+import { type LLMLog, type NewLLMLog, chatSessions, llmLogs, users } from '@/lib/db/schema';
 
 /**
- * LLM log with enriched user and organization data
+ * LLM log with enriched user data
  */
 type LlmLogListItem = Pick<
   LLMLog,
@@ -28,13 +21,10 @@ type LlmLogListItem = Pick<
   | 'finishReason'
   | 'errorMessage'
   | 'userId'
-  | 'organizationId'
   | 'chatSessionId'
 > & {
   userEmail: string | null;
   userDisplayName: string | null;
-  organizationName: string | null;
-  organizationSlug: string | null;
 };
 
 /**
@@ -57,11 +47,6 @@ interface LlmLogDetails extends LLMLog {
     email: string;
     displayName: string;
   } | null;
-  organization: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
   chatSession: {
     id: string;
     title: string | null;
@@ -73,7 +58,6 @@ interface LlmLogDetails extends LLMLog {
  */
 export async function listLlmLogs(filters: {
   searchQuery?: string;
-  organizationId?: string;
   chatSessionId?: string;
   dateFrom?: Date;
   dateTo?: Date;
@@ -93,11 +77,6 @@ export async function listLlmLogs(filters: {
     conditions.push(or(ilike(llmLogs.endpoint, searchTerm), ilike(llmLogs.model, searchTerm)));
   }
 
-  // Organization filter
-  if (filters.organizationId) {
-    conditions.push(eq(llmLogs.organizationId, filters.organizationId));
-  }
-
   // Chat session filter
   if (filters.chatSessionId) {
     conditions.push(eq(llmLogs.chatSessionId, filters.chatSessionId));
@@ -112,7 +91,7 @@ export async function listLlmLogs(filters: {
     conditions.push(sql`${llmLogs.timestamp} <= ${filters.dateTo}`);
   }
 
-  // User filter (for super admin viewing specific user's logs)
+  // User filter (for admin viewing specific user's logs)
   if (filters.userId) {
     conditions.push(eq(llmLogs.userId, filters.userId));
   }
@@ -139,16 +118,12 @@ export async function listLlmLogs(filters: {
       finishReason: llmLogs.finishReason,
       errorMessage: llmLogs.errorMessage,
       userId: llmLogs.userId,
-      organizationId: llmLogs.organizationId,
       chatSessionId: llmLogs.chatSessionId,
       userEmail: users.email,
       userDisplayName: users.displayName,
-      organizationName: organizations.name,
-      organizationSlug: organizations.slug,
     })
     .from(llmLogs)
     .leftJoin(users, eq(llmLogs.userId, users.id))
-    .leftJoin(organizations, eq(llmLogs.organizationId, organizations.id))
     .where(whereClause)
     .orderBy(sql`${llmLogs.timestamp} DESC`)
     .limit(pageSize)
@@ -172,12 +147,10 @@ export async function getLlmLogById(id: string): Promise<LlmLogDetails> {
     .select({
       log: llmLogs,
       user: users,
-      organization: organizations,
       chatSession: chatSessions,
     })
     .from(llmLogs)
     .leftJoin(users, eq(llmLogs.userId, users.id))
-    .leftJoin(organizations, eq(llmLogs.organizationId, organizations.id))
     .leftJoin(chatSessions, eq(llmLogs.chatSessionId, chatSessions.id))
     .where(eq(llmLogs.id, id))
     .limit(1);
@@ -186,7 +159,7 @@ export async function getLlmLogById(id: string): Promise<LlmLogDetails> {
     throw new Error('LLM log not found');
   }
 
-  const { log, user, organization, chatSession } = result[0];
+  const { log, user, chatSession } = result[0];
 
   return {
     ...log,
@@ -195,13 +168,6 @@ export async function getLlmLogById(id: string): Promise<LlmLogDetails> {
           id: user.id,
           email: user.email,
           displayName: user.displayName,
-        }
-      : null,
-    organization: organization
-      ? {
-          id: organization.id,
-          name: organization.name,
-          slug: organization.slug,
         }
       : null,
     chatSession: chatSession

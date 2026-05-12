@@ -8,12 +8,10 @@ import { TRPCError, initTRPC } from '@trpc/server';
 import superjson from 'superjson';
 
 import { auth } from '@/lib/auth/providers';
-import { db } from '@/lib/db/drizzle';
-import { ORG_ROLES, USER_ROLES } from '@/lib/types/organization';
 
 /**
  * Create context for tRPC
- * This runs on every request and provides access to auth state and organization context
+ * This runs on every request and provides access to auth state
  *
  * @param opts - Optional context options
  * @param opts.req - Request object (used in API routes)
@@ -41,17 +39,9 @@ export const createTRPCContext = async (opts?: { req?: Request }) => {
 
   const user = sessionData?.user;
   const userId = user?.id ?? null;
-  const session = sessionData?.session;
-
-  const activeOrganizationSlug = session?.activeOrganizationSlug ?? null;
-  const activeOrganizationId = session?.activeOrganizationId ?? null;
-  const orgRole = session?.activeOrganizationRole ?? null;
 
   return {
     userId,
-    activeOrganizationId, // Active organization ID (can be null)
-    orgRole, // User's role in active organization (can be null)
-    activeOrganizationSlug,
     async getUser() {
       return user;
     },
@@ -93,86 +83,22 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
   return opts.next({
     ctx: {
       userId: ctx.userId,
-      activeOrganizationId: ctx.activeOrganizationId,
-      orgRole: ctx.orgRole,
-      activeOrganizationSlug: ctx.activeOrganizationSlug,
       getUser: ctx.getUser,
     },
   });
 });
 
 /**
- * Organization procedure - requires authentication and organization membership
- * Validates that the user is a member of the organization specified in input.organizationId
- *
- * Use this for any route that accepts organizationId as input and needs to verify access
+ * Admin procedure - requires authentication and admin role
  */
-export const orgProcedure = protectedProcedure.use(async ({ ctx, next, getRawInput }) => {
-  const rawInput = (await getRawInput()) as { organizationId?: string };
-  const organizationId = rawInput.organizationId;
-
-  if (!organizationId) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'organizationId is required',
-    });
-  }
-
-  const membership = await db.query.orgMemberships.findFirst({
-    where: (memberships, { and, eq }) =>
-      and(eq(memberships.organizationId, organizationId), eq(memberships.userId, ctx.userId)),
-  });
-
-  if (!membership) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'You do not have access to this organization',
-    });
-  }
-
-  return next({
-    ctx: {
-      ...ctx,
-      organizationId,
-      orgRole: membership.role,
-      membership,
-    },
-  });
-});
-
-/**
- * Organization owner procedure - middleware that checks for owner role
- */
-export const orgOwnerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  const organizationId = ctx.activeOrganizationId;
-
-  if (!organizationId) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'Organization not found',
-    });
-  }
-
-  if (ctx.orgRole !== ORG_ROLES.OWNER) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Only organization owners can perform this action',
-    });
-  }
-  return next({ ctx: { ...ctx, organizationId } });
-});
-
-/**
- * Super admin procedure - requires authentication and super admin access
- */
-export const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const user = await ctx.getUser();
 
   if (!user) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found' });
   }
 
-  if (user.role !== USER_ROLES.ADMIN) {
+  if (user.role !== 'admin') {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
   }
 

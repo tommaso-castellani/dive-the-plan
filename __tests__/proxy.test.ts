@@ -72,83 +72,40 @@ describe('proxy', () => {
     expect(res?.url).toContain('redirect=%2Fsettings');
   });
 
-  it('redirects unauthenticated users on org routes', async () => {
-    const res = await proxy(makeReq('/org/test-org/dashboard'));
+  it('redirects unauthenticated users on dashboard route', async () => {
+    const res = await proxy(makeReq('/dashboard'));
     expect(res?.type).toBe('redirect');
     expect(res?.url).toContain('/sign-in');
   });
 
-  it('redirects authenticated users without activeOrganizationSlug to onboarding', async () => {
+  it('redirects authenticated users from root to dashboard', async () => {
     const cookies = mockSession(mockedSession);
-
-    const res = await proxy(makeReq('/settings', cookies));
-    expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/onboarding');
-  });
-
-  it('allows authenticated users without activeOrganizationSlug to access onboarding', async () => {
-    const cookies = mockSession(mockedSession);
-
-    const res = await proxy(makeReq('/onboarding', cookies));
-    expect(res).toEqual({ type: 'next' });
-  });
-
-  it('redirects authenticated users with activeOrganizationSlug from root to org dashboard', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
 
     const res = await proxy(makeReq('/', cookies));
     expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/org/test-org/dashboard');
+    expect(res?.url).toContain('/dashboard');
   });
 
-  it('allows authenticated users with activeOrganizationSlug to access protected routes', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
+  it('allows authenticated users to access protected routes', async () => {
+    const cookies = mockSession(mockedSession);
 
     const res = await proxy(makeReq('/settings', cookies));
     expect(res).toEqual({ type: 'next' });
   });
 
-  it('allows authenticated users with activeOrganizationSlug to access org routes', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
+  it('allows authenticated users to access the dashboard', async () => {
+    const cookies = mockSession(mockedSession);
 
-    const res = await proxy(makeReq('/org/test-org/dashboard', cookies));
+    const res = await proxy(makeReq('/dashboard', cookies));
     expect(res).toEqual({ type: 'next' });
   });
 
   it('redirects authenticated users trying to access sign-in routes', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
+    const cookies = mockSession(mockedSession);
 
     const res = await proxy(makeReq('/sign-in', cookies));
     expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/org/test-org/dashboard');
+    expect(res?.url).toContain('/dashboard');
   });
 
   it('calls NextResponse.next() for API routes', async () => {
@@ -161,26 +118,11 @@ describe('proxy', () => {
     expect(res).toEqual({ type: 'next' });
   });
 
-  it('allows authenticated users with activeOrganizationSlug to access public routes', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
+  it('allows authenticated users to access public routes', async () => {
+    const cookies = mockSession(mockedSession);
 
     const res = await proxy(makeReq('/privacy', cookies));
     expect(res).toEqual({ type: 'next' });
-  });
-
-  it('redirects authenticated users without activeOrganizationSlug trying to access sign-in to onboarding', async () => {
-    const cookies = mockSession(mockedSession);
-
-    const res = await proxy(makeReq('/sign-in', cookies));
-    expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/onboarding');
   });
 
   it('allows access to /sign-in/verify with valid sign_in_attempt_email cookie', async () => {
@@ -196,25 +138,12 @@ describe('proxy', () => {
     expect(res?.url).toContain('/sign-in');
   });
 
-  it('redirects authenticated users without activeOrganizationSlug from root to onboarding', async () => {
-    const cookies = mockSession(mockedSession);
-
-    const res = await proxy(makeReq('/', cookies));
-    expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/onboarding');
-  });
-
-  it('redirects authenticated users to admin dashboard if they are super admin', async () => {
+  it('allows admin users to access the admin dashboard', async () => {
     const cookies = mockSession({
       ...mockedSession,
       user: {
         ...mockedSession.user,
         role: 'admin',
-      },
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
       },
     });
 
@@ -222,18 +151,11 @@ describe('proxy', () => {
     expect(res?.type).toBe('next');
   });
 
-  it('redirects authenticated users to org dashboard if they are not super admin', async () => {
-    const cookies = mockSession({
-      ...mockedSession,
-      session: {
-        ...mockedSession.session,
-        activeOrganizationId: 'org-1',
-        activeOrganizationSlug: 'test-org',
-      },
-    });
+  it('redirects non-admin users away from admin dashboard', async () => {
+    const cookies = mockSession(mockedSession);
 
     const res = await proxy(makeReq('/admin', cookies));
     expect(res?.type).toBe('redirect');
-    expect(res?.url).toContain('/org/test-org/dashboard');
+    expect(res?.url).toContain('/dashboard');
   });
 });

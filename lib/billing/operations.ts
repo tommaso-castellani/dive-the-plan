@@ -4,7 +4,7 @@ import type Stripe from 'stripe';
 import { BILLING_URLS, type PricingData } from '@/lib/billing';
 import { db } from '@/lib/db';
 import { SubscriptionStatus, SubscriptionTier } from '@/lib/db/schema';
-import { orgSubscriptions, organizations } from '@/lib/db/schema';
+import { userSubscriptions, users } from '@/lib/db/schema';
 import { isStripeApiKeyConfigured } from '@/lib/services/config-service';
 import { type CheckoutSessionParams, type OperationResult } from '@/lib/types';
 
@@ -12,7 +12,7 @@ import { getStripe } from './client';
 import { getSubscriptionEligibility } from './eligibility';
 import { getAllPrefixedLookupKeys, stripPrefix, withPrefix } from './lookup-keys';
 import { SubscriptionTierType } from './products';
-import { getOrgSubscription } from './subscription';
+import { getUserSubscription } from './subscription';
 
 /**
  * Billing operations: checkout, cancel, reactivate
@@ -87,66 +87,63 @@ export async function getPricingFromStripe(): Promise<PricingData> {
 }
 
 /**
- * Get or create Stripe customer for an organization
+ * Get or create Stripe customer for a user
  */
-async function getOrCreateStripeCustomer(
-  organizationId: string,
-  customerEmail: string
-): Promise<string> {
-  // Check if organization already has a Stripe customer ID
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, organizationId),
+async function getOrCreateStripeCustomer(userId: string, customerEmail: string): Promise<string> {
+  // Check if user already has a Stripe customer ID
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
   });
 
-  if (org?.stripeCustomerId) {
-    return org.stripeCustomerId;
+  if (user?.stripeCustomerId) {
+    return user.stripeCustomerId;
   }
 
   // Create new Stripe customer
   const stripe = await getStripe();
   const customer = await stripe.customers.create({
     email: customerEmail,
-    name: org?.name,
+    name: user?.displayName,
     metadata: {
-      organizationId,
+      userId,
     },
   });
 
-  // Save customer ID to organization record
+  // Save customer ID to user record
   await db
-    .update(organizations)
+    .update(users)
     .set({ stripeCustomerId: customer.id, updatedAt: new Date() })
-    .where(eq(organizations.id, organizationId));
+    .where(eq(users.id, userId));
 
   return customer.id;
 }
 
 /**
- * Create free-tier subscription for a new organization
+ * Create free-tier subscription for a new user
  * Creates Stripe customer and subscription - webhook will handle database record creation
  *
  * If Stripe is not configured or fails, returns success without creating a DB record.
- * Organizations will use free tier by default (handled by getOrgSubscription()).
+ * Users will use free tier by default (handled by getUserSubscription()).
  */
 export async function createFreeTierSubscription(params: {
-  organizationId: string;
+  userId: string;
   customerEmail: string;
 }): Promise<OperationResult> {
   try {
-    const { organizationId, customerEmail } = params;
+    const { userId, customerEmail } = params;
 
-    console.log('🆓 Creating free-tier subscription for organization:', organizationId);
+    console.log('🆓 Creating free-tier subscription for user:', userId);
 
-    // Check if organization already has a subscription
-    const existingSubscription = await db.query.orgSubscriptions.findFirst({
-      where: eq(orgSubscriptions.organizationId, organizationId),
+    // Check if user already has a subscription
+    const existingSubscription = await db.query.userSubscriptions.findFirst({
+      where: eq(userSubscriptions.userId, userId),
     });
 
     if (existingSubscription) {
-      console.log('ℹ️ Organization already has a subscription:', organizationId);
+      console.log('ℹ️ User already has a subscription:', userId);
       return {
         success: true,
-        message: 'Organization already has a subscription',
+        message: 'User already has a subscription',
       };
     }
 
@@ -154,16 +151,16 @@ export async function createFreeTierSubscription(params: {
     const freePriceId = await getPriceByLookupKey(SubscriptionTier.FREE_MONTHLY);
     if (!freePriceId) {
       console.warn(
-        '⚠️  No free tier price found in Stripe - organization will use free tier by default'
+        '⚠️  No free tier price found in Stripe - user will use free tier by default'
       );
       return {
         success: true,
-        message: 'Organization created with free tier access (Stripe not configured)',
+        message: 'User created with free tier access (Stripe not configured)',
       };
     }
 
-    // Create Stripe customer for the organization
-    const customerId = await getOrCreateStripeCustomer(organizationId, customerEmail);
+    // Create Stripe customer for the user
+    const customerId = await getOrCreateStripeCustomer(userId, customerEmail);
 
     // Create Stripe subscription with metadata
     // The webhook will handle creating the database record
@@ -173,12 +170,12 @@ export async function createFreeTierSubscription(params: {
         customer: customerId,
         items: [{ price: freePriceId }],
         metadata: {
-          organizationId,
+          userId,
           tier: SubscriptionTier.FREE_MONTHLY,
         },
       },
       {
-        idempotencyKey: `free-tier-${organizationId}`,
+        idempotencyKey: `free-tier-${userId}`,
       }
     );
 
@@ -191,31 +188,31 @@ export async function createFreeTierSubscription(params: {
     };
   } catch (error) {
     console.warn(
-      '⚠️  Error creating free-tier subscription - organization will use free tier by default'
+      '⚠️  Error creating free-tier subscription - user will use free tier by default'
     );
     console.warn('   Error:', error instanceof Error ? error.message : error);
     return {
       success: true,
-      message: 'Organization created with free tier access (Stripe error)',
+      message: 'User created with free tier access (Stripe error)',
     };
   }
 }
 
 /**
- * Delete Stripe customer for an organization
- * Called when an organization is being deleted
+ * Delete Stripe customer for a user
+ * Called when a user account is being deleted
  */
-export async function deleteStripeCustomer(organizationId: string): Promise<OperationResult> {
+export async function deleteStripeCustomer(userId: string): Promise<OperationResult> {
   try {
-    console.log('🗑️ Deleting Stripe customer for organization:', organizationId);
+    console.log('🗑️ Deleting Stripe customer for user:', userId);
 
-    // Get organization's Stripe customer ID
-    const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, organizationId),
+    // Get user's Stripe customer ID
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
     });
 
-    if (!org?.stripeCustomerId) {
-      console.log('ℹ️ No Stripe customer found for organization:', organizationId);
+    if (!user?.stripeCustomerId) {
+      console.log('ℹ️ No Stripe customer found for user:', userId);
       return {
         success: true,
         message: 'No Stripe customer to delete',
@@ -224,9 +221,9 @@ export async function deleteStripeCustomer(organizationId: string): Promise<Oper
 
     // Delete customer in Stripe (this will automatically cancel all subscriptions)
     const stripe = await getStripe();
-    await stripe.customers.del(org.stripeCustomerId);
+    await stripe.customers.del(user.stripeCustomerId);
 
-    console.log('✅ Successfully deleted Stripe customer:', org.stripeCustomerId);
+    console.log('✅ Successfully deleted Stripe customer:', user.stripeCustomerId);
 
     return {
       success: true,
@@ -234,11 +231,11 @@ export async function deleteStripeCustomer(organizationId: string): Promise<Oper
     };
   } catch (error) {
     console.error('💥 Error deleting Stripe customer:', error);
-    // Don't fail the organization deletion if Stripe deletion fails
+    // Don't fail the user deletion if Stripe deletion fails
     // Log the error but return success
     return {
       success: true,
-      message: 'Organization deleted (Stripe cleanup may need manual intervention)',
+      message: 'User deleted (Stripe cleanup may need manual intervention)',
     };
   }
 }
@@ -278,10 +275,10 @@ async function createSubscriptionSchedule(
   params: CheckoutSessionParams
 ): Promise<OperationResult<{ url: string; id: string }>> {
   try {
-    const { tier, organizationId, customerEmail } = params;
+    const { tier, userId, customerEmail } = params;
 
     // Get current subscription
-    const currentSubscription = await getOrgSubscription(organizationId);
+    const currentSubscription = await getUserSubscription(userId);
 
     if (
       !currentSubscription.activeSubscription?.stripeSubscriptionId ||
@@ -303,7 +300,7 @@ async function createSubscriptionSchedule(
     }
 
     // Get or create Stripe customer
-    const customerId = await getOrCreateStripeCustomer(organizationId, customerEmail);
+    const customerId = await getOrCreateStripeCustomer(userId, customerEmail);
 
     // Create subscription schedule to start after current period ends
     const stripe = await getStripe();
@@ -320,14 +317,14 @@ async function createSubscriptionSchedule(
             },
           ],
           metadata: {
-            organizationId: organizationId,
+            userId,
             tier,
             isDowngrade: 'true',
           },
         },
       ],
       metadata: {
-        organizationId: organizationId,
+        userId,
         targetTier: tier,
         isDowngrade: 'true',
         currentSubscriptionId: currentSubscription.activeSubscription.stripeSubscriptionId,
@@ -341,7 +338,7 @@ async function createSubscriptionSchedule(
 
     // Update local database to mark scheduled downgrade
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         cancelAtPeriodEnd: 'true',
         scheduledDowngradeTier: tier, // Track the target tier
@@ -350,7 +347,7 @@ async function createSubscriptionSchedule(
       })
       .where(
         eq(
-          orgSubscriptions.stripeSubscriptionId,
+          userSubscriptions.stripeSubscriptionId,
           currentSubscription.activeSubscription.stripeSubscriptionId
         )
       );
@@ -411,10 +408,10 @@ export async function createCheckoutSession(
   params: CheckoutSessionParams
 ): Promise<OperationResult<{ url: string; id: string }>> {
   try {
-    const { tier, organizationId, customerEmail, metadata = {}, redirectUrl, cancelUrl } = params;
+    const { tier, userId, customerEmail, metadata = {}, redirectUrl, cancelUrl } = params;
 
     // Check if this is a downgrade
-    const currentSubscription = await getOrgSubscription(organizationId);
+    const currentSubscription = await getUserSubscription(userId);
     const currentPrice = await getTierPrice(currentSubscription.tier);
     const newPrice = await getTierPrice(tier);
 
@@ -434,7 +431,7 @@ export async function createCheckoutSession(
     }
 
     // Get or create Stripe customer
-    const customerId = await getOrCreateStripeCustomer(organizationId, customerEmail);
+    const customerId = await getOrCreateStripeCustomer(userId, customerEmail);
 
     // Create checkout session for upgrade or new subscription
     const stripe = await getStripe();
@@ -450,13 +447,13 @@ export async function createCheckoutSession(
       success_url: redirectUrl,
       cancel_url: cancelUrl,
       metadata: {
-        organizationId: organizationId,
+        userId,
         tier,
         ...metadata,
       },
       subscription_data: {
         metadata: {
-          organizationId: organizationId,
+          userId,
           tier,
         },
       },
@@ -480,16 +477,16 @@ export async function createCheckoutSession(
 }
 
 /**
- * Cancel organization's active subscription (mark for cancellation at period end)
+ * Cancel user's active subscription (mark for cancellation at period end)
  */
-export async function cancelOrgSubscription(
-  organizationId: string,
+export async function cancelUserSubscription(
+  userId: string,
   stripeSubscriptionId: string
 ): Promise<OperationResult> {
   try {
     console.log('🔄 Canceling subscription via Stripe API:', stripeSubscriptionId);
 
-    const currentSubscription = await getOrgSubscription(organizationId);
+    const currentSubscription = await getUserSubscription(userId);
     const eligibility = getSubscriptionEligibility(currentSubscription);
 
     if (!eligibility.canCancel) {
@@ -505,7 +502,7 @@ export async function cancelOrgSubscription(
     ) {
       return {
         success: false,
-        message: 'Subscription not found or does not belong to this organization.',
+        message: 'Subscription not found or does not belong to this user.',
       };
     }
 
@@ -519,13 +516,13 @@ export async function cancelOrgSubscription(
 
     // Update local database
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         cancelAtPeriodEnd: 'true',
         canceledAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
+      .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
 
     console.log('✅ Successfully updated local subscription status');
 
@@ -535,7 +532,7 @@ export async function cancelOrgSubscription(
         'Subscription has been successfully canceled. You will continue to have access until the end of your current billing period.',
     };
   } catch (error) {
-    console.error('💥 Error in cancelOrgSubscription:', error);
+    console.error('💥 Error in cancelUserSubscription:', error);
     return {
       success: false,
       message:
@@ -549,14 +546,14 @@ export async function cancelOrgSubscription(
 /**
  * Reactivate a canceled subscription (remove cancellation)
  */
-export async function reactivateOrgSubscription(
-  organizationId: string,
+export async function reactivateUserSubscription(
+  userId: string,
   stripeSubscriptionId: string
 ): Promise<OperationResult> {
   try {
     console.log('🔄 Reactivating subscription via Stripe API:', stripeSubscriptionId);
 
-    const currentSubscription = await getOrgSubscription(organizationId);
+    const currentSubscription = await getUserSubscription(userId);
     const eligibility = getSubscriptionEligibility(currentSubscription);
 
     if (!eligibility.canReactivate) {
@@ -572,7 +569,7 @@ export async function reactivateOrgSubscription(
     ) {
       return {
         success: false,
-        message: 'Subscription not found or does not belong to this organization.',
+        message: 'Subscription not found or does not belong to this user.',
       };
     }
 
@@ -586,14 +583,14 @@ export async function reactivateOrgSubscription(
 
     // Update local database
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         status: SubscriptionStatus.ACTIVE,
         cancelAtPeriodEnd: 'false',
         canceledAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
+      .where(eq(userSubscriptions.stripeSubscriptionId, stripeSubscriptionId));
 
     console.log('✅ Successfully updated local subscription status to active');
 
@@ -602,7 +599,7 @@ export async function reactivateOrgSubscription(
       message: 'Subscription has been successfully reactivated.',
     };
   } catch (error) {
-    console.error('💥 Error in reactivateOrgSubscription:', error);
+    console.error('💥 Error in reactivateUserSubscription:', error);
     return {
       success: false,
       message:
@@ -617,23 +614,23 @@ export async function reactivateOrgSubscription(
  * Create Stripe Customer Portal session for subscription management
  */
 export async function createCustomerPortalSession(
-  organizationId: string
+  userId: string
 ): Promise<OperationResult<{ url: string }>> {
   try {
-    const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, organizationId),
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
     });
 
-    if (!org?.stripeCustomerId) {
+    if (!user?.stripeCustomerId) {
       return {
         success: false,
-        message: 'No Stripe customer found for this organization.',
+        message: 'No Stripe customer found for this user.',
       };
     }
 
     const stripe = await getStripe();
     const session = await stripe.billingPortal.sessions.create({
-      customer: org.stripeCustomerId,
+      customer: user.stripeCustomerId,
       return_url: BILLING_URLS.cancel,
     });
 
@@ -656,12 +653,12 @@ export async function createCustomerPortalSession(
 /**
  * Cancel a pending subscription downgrade (cancels the subscription schedule)
  */
-export async function cancelPendingDowngrade(organizationId: string): Promise<OperationResult> {
+export async function cancelPendingDowngrade(userId: string): Promise<OperationResult> {
   try {
-    console.log('🔄 Canceling pending downgrade for organization:', organizationId);
+    console.log('🔄 Canceling pending downgrade for user:', userId);
 
     // Get current subscription
-    const currentSubscription = await getOrgSubscription(organizationId);
+    const currentSubscription = await getUserSubscription(userId);
 
     if (!currentSubscription.activeSubscription?.scheduledDowngradeTier) {
       return {
@@ -692,15 +689,15 @@ export async function cancelPendingDowngrade(organizationId: string): Promise<Op
       );
     });
 
-    // Find the pending schedule for this organization (status can be 'not_started' or 'active')
+    // Find the pending schedule for this user (status can be 'not_started' or 'active')
     const pendingSchedule = schedules.data.find(
       (schedule) =>
-        schedule.metadata?.organizationId === organizationId &&
+        schedule.metadata?.userId === userId &&
         (schedule.status === 'active' || schedule.status === 'not_started')
     );
 
     if (!pendingSchedule) {
-      console.error('❌ No pending schedule found for organization:', organizationId);
+      console.error('❌ No pending schedule found for user:', userId);
       console.error(
         'Available schedules:',
         schedules.data.map((s) => ({
@@ -740,7 +737,7 @@ export async function cancelPendingDowngrade(organizationId: string): Promise<Op
 
     // Update local database
     await db
-      .update(orgSubscriptions)
+      .update(userSubscriptions)
       .set({
         scheduledDowngradeTier: null,
         cancelAtPeriodEnd: 'false',
@@ -748,7 +745,7 @@ export async function cancelPendingDowngrade(organizationId: string): Promise<Op
         status: SubscriptionStatus.ACTIVE,
         updatedAt: new Date(),
       })
-      .where(eq(orgSubscriptions.organizationId, organizationId));
+      .where(eq(userSubscriptions.userId, userId));
 
     console.log('✅ Successfully canceled pending downgrade');
 

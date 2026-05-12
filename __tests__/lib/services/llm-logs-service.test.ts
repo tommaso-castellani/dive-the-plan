@@ -18,7 +18,6 @@ vi.mock('@/lib/db/drizzle', () => ({
 
 describe('LLM Logs Service', () => {
   const mockUserId = 'user-123';
-  const mockOrgId = 'org-456';
   const mockChatSessionId = 'session-789';
   const mockLogId = 'log-abc';
 
@@ -40,7 +39,6 @@ describe('LLM Logs Service', () => {
     errorMessage: null,
     generationConfig: '{"temperature":0.7}',
     userId: mockUserId,
-    organizationId: mockOrgId,
     chatSessionId: mockChatSessionId,
     createdAt: new Date('2024-01-15T10:30:00Z'),
   };
@@ -61,20 +59,10 @@ describe('LLM Logs Service', () => {
     banExpires: null,
   };
 
-  const mockOrganization = {
-    id: mockOrgId,
-    name: 'Test Organization',
-    slug: 'test-org',
-    logoUrl: null,
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01'),
-  };
-
   const mockChatSession = {
     id: mockChatSessionId,
     title: 'Test Chat Session',
     userId: mockUserId,
-    organizationId: mockOrgId,
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15'),
   };
@@ -104,12 +92,9 @@ describe('LLM Logs Service', () => {
           finishReason: mockLlmLog.finishReason,
           errorMessage: mockLlmLog.errorMessage,
           userId: mockUserId,
-          organizationId: mockOrgId,
           chatSessionId: mockChatSessionId,
           userEmail: mockUser.email,
           userDisplayName: mockUser.displayName,
-          organizationName: mockOrganization.name,
-          organizationSlug: mockOrganization.slug,
         },
       ];
 
@@ -180,37 +165,6 @@ describe('LLM Logs Service', () => {
 
       expect(result.logs).toEqual([]);
       expect(result.total).toBe(0);
-    });
-
-    it('should filter logs by organizationId', async () => {
-      const mockCountSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([{ count: 1 }]),
-        }),
-      });
-
-      const mockListSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          leftJoin: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnValue({
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                offset: vi.fn().mockResolvedValue([]),
-              }),
-            }),
-          }),
-        }),
-      });
-
-      vi.mocked(db.select)
-        .mockImplementationOnce(mockCountSelect)
-        .mockImplementationOnce(mockListSelect);
-
-      await llmLogsService.listLlmLogs({
-        organizationId: mockOrgId,
-      });
-
-      expect(db.select).toHaveBeenCalledTimes(2);
     });
 
     it('should filter logs by chatSessionId', async () => {
@@ -348,7 +302,6 @@ describe('LLM Logs Service', () => {
         {
           log: mockLlmLog,
           user: mockUser,
-          organization: mockOrganization,
           chatSession: mockChatSession,
         },
       ];
@@ -373,11 +326,6 @@ describe('LLM Logs Service', () => {
           email: mockUser.email,
           displayName: mockUser.displayName,
         },
-        organization: {
-          id: mockOrganization.id,
-          name: mockOrganization.name,
-          slug: mockOrganization.slug,
-        },
         chatSession: {
           id: mockChatSession.id,
           title: mockChatSession.title,
@@ -391,7 +339,6 @@ describe('LLM Logs Service', () => {
         {
           log: mockLlmLog,
           user: null,
-          organization: null,
           chatSession: null,
         },
       ];
@@ -410,7 +357,6 @@ describe('LLM Logs Service', () => {
       const result = await llmLogsService.getLlmLogById(mockLogId);
 
       expect(result.user).toBeNull();
-      expect(result.organization).toBeNull();
       expect(result.chatSession).toBeNull();
     });
 
@@ -450,7 +396,6 @@ describe('LLM Logs Service', () => {
         errorMessage: null,
         generationConfig: '{"temperature":0.7}',
         userId: mockUserId,
-        organizationId: mockOrgId,
         chatSessionId: mockChatSessionId,
       };
 
@@ -485,7 +430,6 @@ describe('LLM Logs Service', () => {
         errorMessage: null,
         generationConfig: null,
         userId: mockUserId,
-        organizationId: mockOrgId,
         chatSessionId: mockChatSessionId,
       };
 
@@ -519,7 +463,6 @@ describe('LLM Logs Service', () => {
         errorMessage: null,
         generationConfig: null,
         userId: mockUserId,
-        organizationId: mockOrgId,
         chatSessionId: mockChatSessionId,
       };
 

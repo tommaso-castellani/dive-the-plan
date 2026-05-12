@@ -7,7 +7,7 @@
 
 // Core functionality
 export {
-  getOrgSubscription,
+  getUserSubscription,
   hasFeatureAccess,
   safeSubscriptionTierCast,
   safeSubscriptionStatusCast,
@@ -19,8 +19,8 @@ export { calculateSubscriptionState, getSubscriptionEligibility } from './eligib
 // Operations
 export {
   createCheckoutSession,
-  cancelOrgSubscription,
-  reactivateOrgSubscription,
+  cancelUserSubscription,
+  reactivateUserSubscription,
   createCustomerPortalSession,
   cancelPendingDowngrade,
   getPricingFromStripe,
@@ -49,11 +49,9 @@ export {
 export { getStripe } from './client';
 export type {
   SubscriptionEligibility,
-  OrgSubscriptionInfo,
+  UserSubscriptionInfo,
   CheckoutSessionParams,
   OperationResult,
 } from '@/lib/types';
 export { SubscriptionStatus } from '@/lib/db/schema';
 export { SubscriptionState } from '@/lib/types';
-
-// All functions are exported above with their original names for backward compatibility

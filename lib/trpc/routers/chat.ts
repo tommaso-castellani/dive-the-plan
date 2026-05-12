@@ -4,7 +4,7 @@ import { and, asc, count, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/lib/db/drizzle';
 import { chatMessages, chatSessions } from '@/lib/db/schema';
-import { orgProcedure, router } from '@/lib/trpc/init';
+import { protectedProcedure, router } from '@/lib/trpc/init';
 import {
   createChatSessionSchema,
   deleteChatSessionSchema,
@@ -20,28 +20,24 @@ import { messageMetadataSchema } from '@/lib/types/chat';
 
 export const chatRouter = router({
   /**
-   * List all chat sessions for an organization
+   * List all chat sessions for the current user
    * Uses efficient SQL COUNT() for pagination
    */
-  listSessions: orgProcedure.input(listChatSessionsSchema).query(async ({ ctx, input }) => {
-    const { page, pageSize, organizationId } = input;
+  listSessions: protectedProcedure.input(listChatSessionsSchema).query(async ({ ctx, input }) => {
+    const { page, pageSize } = input;
     const offset = (page - 1) * pageSize;
 
     // Get total count using SQL COUNT() function (efficient)
     const [{ count: total }] = await db
       .select({ count: count() })
       .from(chatSessions)
-      .where(
-        and(eq(chatSessions.organizationId, organizationId), eq(chatSessions.userId, ctx.userId))
-      );
+      .where(eq(chatSessions.userId, ctx.userId));
 
     // Get paginated results
     const sessions = await db
       .select()
       .from(chatSessions)
-      .where(
-        and(eq(chatSessions.organizationId, organizationId), eq(chatSessions.userId, ctx.userId))
-      )
+      .where(eq(chatSessions.userId, ctx.userId))
       .orderBy(desc(chatSessions.updatedAt))
       .limit(pageSize)
       .offset(offset);
@@ -55,15 +51,11 @@ export const chatRouter = router({
     };
   }),
 
-  getSession: orgProcedure.input(getSessionSchema).query(async ({ ctx, input }) => {
-    const { organizationId, chatSessionId } = input;
+  getSession: protectedProcedure.input(getSessionSchema).query(async ({ ctx, input }) => {
+    const { chatSessionId } = input;
 
     const session = await db.query.chatSessions.findFirst({
-      where: and(
-        eq(chatSessions.id, chatSessionId),
-        eq(chatSessions.organizationId, organizationId),
-        eq(chatSessions.userId, ctx.userId)
-      ),
+      where: and(eq(chatSessions.id, chatSessionId), eq(chatSessions.userId, ctx.userId)),
     });
 
     if (!session) {
@@ -81,16 +73,12 @@ export const chatRouter = router({
    * Sources contain document IDs + proxy URLs for downloads
    * Uses Zod validation for runtime type safety
    */
-  getMessages: orgProcedure.input(getMessagesSchema).query(async ({ ctx, input }) => {
-    const { organizationId, chatSessionId } = input;
+  getMessages: protectedProcedure.input(getMessagesSchema).query(async ({ ctx, input }) => {
+    const { chatSessionId } = input;
 
-    // Verify session exists and belongs to organization
+    // Verify session exists and belongs to the user
     const session = await db.query.chatSessions.findFirst({
-      where: and(
-        eq(chatSessions.id, chatSessionId),
-        eq(chatSessions.organizationId, organizationId),
-        eq(chatSessions.userId, ctx.userId)
-      ),
+      where: and(eq(chatSessions.id, chatSessionId), eq(chatSessions.userId, ctx.userId)),
     });
 
     if (!session) {
@@ -146,50 +134,51 @@ export const chatRouter = router({
   /**
    * Create a new chat session
    */
-  createSession: orgProcedure.input(createChatSessionSchema).mutation(async ({ ctx, input }) => {
-    const { organizationId, title } = input;
+  createSession: protectedProcedure
+    .input(createChatSessionSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { title } = input;
 
-    const [session] = await db
-      .insert(chatSessions)
-      .values({
-        organizationId,
-        userId: ctx.userId,
-        title,
-      })
-      .returning();
+      const [session] = await db
+        .insert(chatSessions)
+        .values({
+          userId: ctx.userId,
+          title,
+        })
+        .returning();
 
-    return session;
-  }),
+      return session;
+    }),
 
   /**
    * Delete a chat session
    */
-  deleteSession: orgProcedure.input(deleteChatSessionSchema).mutation(async ({ input }) => {
-    const { organizationId, chatSessionId } = input;
+  deleteSession: protectedProcedure
+    .input(deleteChatSessionSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { chatSessionId } = input;
 
-    // Delete session (messages will cascade delete)
-    await db
-      .delete(chatSessions)
-      .where(
-        and(eq(chatSessions.id, chatSessionId), eq(chatSessions.organizationId, organizationId))
-      );
+      // Delete session (messages will cascade delete)
+      await db
+        .delete(chatSessions)
+        .where(and(eq(chatSessions.id, chatSessionId), eq(chatSessions.userId, ctx.userId)));
 
-    return { success: true };
-  }),
+      return { success: true };
+    }),
 
   /**
    * Update chat session title
    */
-  updateSession: orgProcedure.input(updateChatSessionTitleSchema).mutation(async ({ input }) => {
-    const { organizationId, chatSessionId, title } = input;
+  updateSession: protectedProcedure
+    .input(updateChatSessionTitleSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { chatSessionId, title } = input;
 
-    await db
-      .update(chatSessions)
-      .set({ title, updatedAt: new Date() })
-      .where(
-        and(eq(chatSessions.id, chatSessionId), eq(chatSessions.organizationId, organizationId))
-      );
+      await db
+        .update(chatSessions)
+        .set({ title, updatedAt: new Date() })
+        .where(and(eq(chatSessions.id, chatSessionId), eq(chatSessions.userId, ctx.userId)));
 
-    return { success: true };
-  }),
+      return { success: true };
+    }),
 });

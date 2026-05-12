@@ -8,9 +8,9 @@ import { useTableSearch } from '@/hooks/use-table-search';
 
 import { TableSkeleton } from '@/components/data-table/data-table-skeleton';
 
-import { LlmLogDrawer } from '../rag/components/llm-log-drawer';
-import { getLlmLogsColumns } from '../rag/components/llm-logs-columns';
-import { LlmLogsDataTable } from '../rag/components/llm-logs-data-table';
+import { LlmLogDrawer } from './components/llm-log-drawer';
+import { getLlmLogsColumns } from './components/llm-logs-columns';
+import { LlmLogsDataTable } from './components/llm-logs-data-table';
 
 export default function AdminLlmLogsPage() {
   const [selectedLogId, setSelectedLogId] = React.useState<string | null>(null);

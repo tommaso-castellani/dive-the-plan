@@ -51,8 +51,15 @@ vi.mock('@/lib/db', () => ({
         where: vi.fn().mockResolvedValue(undefined),
       }),
     }),
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([{ id: 'user_123' }]),
+        }),
+      }),
+    }),
     query: {
-      orgSubscriptions: {
+      userSubscriptions: {
         findFirst: vi.fn().mockResolvedValue(undefined),
         findMany: vi.fn().mockResolvedValue([]),
       },

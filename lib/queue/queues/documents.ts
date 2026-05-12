@@ -13,9 +13,9 @@ export interface IndexDocumentJobData {
   documentId: string;
 
   /**
-   * Organization ID
+   * User ID who owns the document
    */
-  organizationId: string;
+  userId: string;
 
   /**
    * Storage URL where file is stored

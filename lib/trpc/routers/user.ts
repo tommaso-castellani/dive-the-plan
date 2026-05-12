@@ -8,6 +8,7 @@ import { headers } from 'next/headers';
 import { TRPCError } from '@trpc/server';
 
 import { auth } from '@/lib/auth/providers';
+import { isGoogleApiKeyConfigured } from '@/lib/services/config-service';
 import { ERRORS } from '@/lib/services/constants';
 import { syncMarketingPreference } from '@/lib/services/notification-service';
 import {
@@ -169,6 +170,17 @@ export const userRouter = router({
   isAdmin: protectedProcedure.query(async ({ ctx }) => {
     try {
       return await isUserAdmin(ctx.userId);
+    } catch (error) {
+      handleApiError(error);
+    }
+  }),
+
+  /**
+   * Check if Google AI API key is configured (used to gate AI features)
+   */
+  checkGoogleApiKey: protectedProcedure.query(async () => {
+    try {
+      return { configured: isGoogleApiKeyConfigured() };
     } catch (error) {
       handleApiError(error);
     }

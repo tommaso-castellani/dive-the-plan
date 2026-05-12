@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import { type Mock, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { trpc } from '@/lib/trpc/client';
 
@@ -17,6 +17,7 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 const mockInvalidate = vi.fn();
+const mockFetch = vi.fn();
 vi.mock('@/lib/trpc/client', () => ({
   trpc: {
     documents: {
@@ -35,6 +36,9 @@ vi.mock('@/lib/trpc/client', () => ({
         list: {
           invalidate: mockInvalidate,
         },
+        getDownloadUrl: {
+          fetch: mockFetch,
+        },
       },
     }),
   },
@@ -46,25 +50,27 @@ describe('useDocuments', () => {
   const mockDocuments = [
     {
       id: 'doc_1',
-      organizationId: 'org_123',
       userId: 'user_123',
       displayName: 'Technical Specification.pdf',
-      fileName: 'tech-spec.pdf',
       mimeType: 'application/pdf',
       sizeBytes: '2048000',
-      url: 'https://example.com/docs/tech-spec.pdf',
+      storageUrl: 'https://example.com/docs/tech-spec.pdf',
+      status: 'ready' as const,
+      documentResourceName: null,
+      fileSearchStoreName: null,
       createdAt: new Date('2025-01-15'),
       updatedAt: new Date('2025-01-15'),
     },
     {
       id: 'doc_2',
-      organizationId: 'org_123',
       userId: 'user_123',
       displayName: 'User Manual.docx',
-      fileName: 'user-manual.docx',
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       sizeBytes: '1536000',
-      url: 'https://example.com/docs/user-manual.docx',
+      storageUrl: 'https://example.com/docs/user-manual.docx',
+      status: 'ready' as const,
+      documentResourceName: null,
+      fileSearchStoreName: null,
       createdAt: new Date('2025-01-20'),
       updatedAt: new Date('2025-01-20'),
     },
@@ -79,7 +85,6 @@ describe('useDocuments', () => {
   };
 
   const defaultOptions = {
-    organizationId: 'org_123',
     page: 1,
     pageSize: 20,
   };
@@ -133,13 +138,12 @@ describe('useDocuments', () => {
   it('should upload document successfully', async () => {
     const mockNewDocument = {
       id: 'doc_new',
-      organizationId: 'org_123',
       userId: 'user_123',
       displayName: 'New Document.pdf',
       mimeType: 'application/pdf',
       sizeBytes: '12',
       storageUrl: 'https://example.com/docs/new-document.pdf',
-      status: 'in_progress',
+      status: 'in_progress' as const,
       documentResourceName: null,
       fileSearchStoreName: null,
       createdAt: new Date(),
@@ -169,7 +173,6 @@ describe('useDocuments', () => {
     });
 
     expect(mockMutateAsync).toHaveBeenCalledWith({
-      organizationId: 'org_123',
       displayName: 'New Document.pdf',
       mimeType: 'application/pdf',
       sizeBytes: mockFile.size.toString(),
@@ -225,12 +228,9 @@ describe('useDocuments', () => {
 
     const { result } = renderHook(() => useDocuments(defaultOptions), { wrapper });
 
-    await result.current.deleteDocument({ id: 'doc_1', organizationId: 'org_123' });
+    result.current.deleteDocument({ id: 'doc_1' });
 
-    expect(mockMutate).toHaveBeenCalledWith({
-      id: 'doc_1',
-      organizationId: 'org_123',
-    });
+    expect(mockMutate).toHaveBeenCalledWith({ id: 'doc_1' });
 
     expect(mockToast).toHaveBeenCalledWith({
       title: 'Success',
@@ -250,7 +250,7 @@ describe('useDocuments', () => {
 
     const { result } = renderHook(() => useDocuments(defaultOptions), { wrapper });
 
-    await result.current.deleteDocument({ id: 'doc_1', organizationId: 'org_123' });
+    result.current.deleteDocument({ id: 'doc_1' });
 
     expect(mockToast).toHaveBeenCalledWith({
       title: 'Error',
@@ -274,7 +274,11 @@ describe('useDocuments', () => {
     });
 
     expect(trpc.documents.list.useQuery).toHaveBeenCalledWith(
-      { ...defaultOptions, searchQuery },
+      {
+        searchQuery,
+        page: 1,
+        pageSize: 20,
+      },
       expect.any(Object)
     );
     expect(result.current.documents).toHaveLength(1);
@@ -288,17 +292,13 @@ describe('useDocuments', () => {
       refetch: vi.fn(),
     });
 
-    const { result } = renderHook(
-      () => useDocuments({ ...defaultOptions, page: 2, pageSize: 10 }),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useDocuments({ page: 2, pageSize: 10 }), { wrapper });
 
     expect(trpc.documents.list.useQuery).toHaveBeenCalledWith(
       {
-        organizationId: 'org_123',
+        searchQuery: undefined,
         page: 2,
         pageSize: 10,
-        searchQuery: undefined,
       },
       expect.any(Object)
     );
@@ -309,7 +309,6 @@ describe('useDocuments', () => {
 
   it('should handle combined filters (search + pagination)', () => {
     const customOptions = {
-      organizationId: 'org_123',
       searchQuery: 'Manual',
       page: 2,
       pageSize: 10,
@@ -319,44 +318,11 @@ describe('useDocuments', () => {
 
     expect(trpc.documents.list.useQuery).toHaveBeenCalledWith(
       {
-        organizationId: 'org_123',
         searchQuery: 'Manual',
         page: 2,
         pageSize: 10,
       },
       expect.any(Object)
     );
-  });
-
-  it('should not fetch documents when organizationId is missing', () => {
-    const invalidOptions = {
-      organizationId: '',
-      page: 1,
-      pageSize: 20,
-    };
-
-    // Override to show no data
-    (trpc.documents.list.useQuery as Mock).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
-    const { result } = renderHook(() => useDocuments(invalidOptions), { wrapper });
-
-    expect(trpc.documents.list.useQuery).toHaveBeenCalledWith(
-      {
-        organizationId: '',
-        searchQuery: undefined,
-        page: 1,
-        pageSize: 20,
-      },
-      expect.objectContaining({
-        enabled: false, // Should be disabled when organizationId is empty
-      })
-    );
-
-    expect(result.current.documents).toEqual([]);
   });
 });

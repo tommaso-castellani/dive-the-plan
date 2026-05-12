@@ -5,7 +5,7 @@ import { trpc } from '@/lib/trpc/client';
  * Used to gate AI features (Documents, Assistant) when key is missing
  */
 export function useGoogleApiKey() {
-  const { data, isLoading } = trpc.organizations.checkGoogleApiKey.useQuery(undefined, {
+  const { data, isLoading } = trpc.user.checkGoogleApiKey.useQuery(undefined, {
     refetchOnMount: 'always',
   });
 

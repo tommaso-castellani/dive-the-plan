@@ -5,7 +5,6 @@ import { z } from 'zod';
  * Based on Google Gemini API parameters
  */
 export const updateRagSettingsSchema = z.object({
-  organizationId: z.uuid('Invalid organization ID'),
   systemPrompt: z
     .string()
     .max(10000, 'System prompt must be 10,000 characters or less')
@@ -38,8 +37,4 @@ export const updateRagSettingsSchema = z.object({
     .max(100, 'Must be 100 or less')
     .optional()
     .nullable(),
-});
-
-export const getRagSettingsSchema = z.object({
-  organizationId: z.uuid(),
 });

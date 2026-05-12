@@ -10,16 +10,10 @@ import { format } from 'date-fns';
 import { Loader2, Trash2 } from 'lucide-react';
 import { z } from 'zod';
 
-import { useAdminMemberships } from '@/app/admin/hooks/use-admin-memberships';
-
 import { trpc } from '@/lib/trpc/client';
-import type { adminCreateMembershipSchema } from '@/lib/trpc/schemas/admin';
 import { adminUpdateUserSchema } from '@/lib/trpc/schemas/admin';
-import { OrgRoleValue } from '@/lib/types';
-import { USER_ROLES, UserRole } from '@/lib/types/organization';
+import { USER_ROLES, type UserRole } from '@/lib/types';
 
-import { useTablePagination } from '@/hooks/use-table-pagination';
-import { useTableSearch } from '@/hooks/use-table-search';
 import { useToast } from '@/hooks/use-toast';
 
 import {
@@ -45,10 +39,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-import { AddToOrganizationDialog } from './components/add-to-organization-dialog';
-import { UserOrganizationsDataTable } from './components/user-organizations-data-table';
 
 type UserFormValues = z.infer<typeof adminUpdateUserSchema>;
 
@@ -60,43 +50,34 @@ function UserDetailSkeleton() {
         <Skeleton className="h-9 w-32" />
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
-          <Skeleton className="h-10 w-20" />
-          <Skeleton className="h-10 w-32" />
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-6">
-          <div className="flex flex-col gap-10 lg:flex-row">
-            <Card className="max-w-4xl lg:flex-1">
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                  <Skeleton className="h-10 w-32" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <aside className="space-y-6">
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="space-y-1">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-4 w-48" />
-                  </div>
-                ))}
+      <div className="flex flex-col gap-10 lg:flex-row">
+        <Card className="max-w-4xl lg:flex-1">
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-10 w-full" />
               </div>
-              <Skeleton className="h-3 w-40" />
-            </aside>
+              <Skeleton className="h-10 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <aside className="space-y-6">
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-1">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+          <Skeleton className="h-3 w-40" />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -112,15 +93,8 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [membershipDeleteDialogOpen, setMembershipDeleteDialogOpen] = useState(false);
-  const [addToOrgDialogOpen, setAddToOrgDialogOpen] = useState(false);
   const [confirmUpdateDialogOpen, setConfirmUpdateDialogOpen] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<Omit<UserFormValues, 'id'> | null>(null);
-  const [membershipToDelete, setMembershipToDelete] = useState<{
-    id: string;
-    userName: string;
-    orgName: string;
-  } | null>(null);
 
   const { data: userData, isLoading } = trpc.admin.users.get.useQuery(
     { id: resolvedParams.id },
@@ -139,47 +113,6 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
       role: (userData?.user.role ?? USER_ROLES.USER) as UserRole,
     },
   });
-
-  const pagination = useTablePagination({ initialPage: 1, initialPageSize: 20 });
-
-  const { inputValue, searchValue, setSearchValue } = useTableSearch({
-    initialValue: '',
-    debounceMs: 500,
-  });
-
-  // Reset to first page when search value changes
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    if (pagination.page !== 1) {
-      pagination.goToFirstPage();
-    }
-  };
-
-  const { data: membershipsData, refetch: refetchMemberships } =
-    trpc.admin.memberships.list.useQuery(
-      {
-        userId: resolvedParams.id,
-        searchQuery: searchValue.trim() || undefined,
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-      },
-      {
-        placeholderData: (previousData) => previousData,
-        staleTime: 1000 * 60 * 2,
-        enabled: !!resolvedParams.id,
-      }
-    );
-
-  // Fetch all organizations for the add to org dropdown
-  const { data: orgsData } = trpc.admin.organizations.list.useQuery(
-    {
-      page: 1,
-      pageSize: 100,
-    },
-    {
-      staleTime: 1000 * 60 * 5,
-    }
-  );
 
   const updateUserMutation = trpc.admin.users.update.useMutation({
     onSuccess: () => {
@@ -221,54 +154,8 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
     },
   });
 
-  const { createMembership, updateMembership, deleteMembership, isDeleting, isCreating } =
-    useAdminMemberships();
-
   const handleDelete = () => {
     deleteUser.mutate({ id: resolvedParams.id });
-  };
-
-  const handleViewOrganization = (id: string) => {
-    router.push(`/admin/organizations/${id}`);
-  };
-
-  const handleRemoveMembership = (id: string, userName: string, orgName: string) => {
-    setMembershipToDelete({ id, userName, orgName });
-    setMembershipDeleteDialogOpen(true);
-  };
-
-  const handleRoleChange = (id: string, role: OrgRoleValue) => {
-    updateMembership(
-      { id, role },
-      {
-        onSuccess: () => {
-          refetchMemberships();
-        },
-      }
-    );
-  };
-
-  const handleDeleteMembershipConfirm = async () => {
-    if (!membershipToDelete) return;
-    deleteMembership(
-      { id: membershipToDelete.id },
-      {
-        onSuccess: () => {
-          refetchMemberships();
-          setMembershipDeleteDialogOpen(false);
-          setMembershipToDelete(null);
-        },
-      }
-    );
-  };
-
-  const handleAddToOrgSubmit = (data: z.infer<typeof adminCreateMembershipSchema>) => {
-    createMembership(data, {
-      onSuccess: () => {
-        refetchMemberships();
-        setAddToOrgDialogOpen(false);
-      },
-    });
   };
 
   const onSubmit = (data: Omit<UserFormValues, 'id'>) => {
@@ -305,15 +192,6 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
     watchedEmailVerified !== userData?.user.emailVerified ||
     watchedRole !== userData?.user.role;
 
-  const existingOrganizations = membershipsData?.memberships.map(
-    (membership) => membership.organization.id
-  );
-
-  const availableOrganizations =
-    orgsData?.organizations.filter(
-      (organization) => !existingOrganizations?.includes(organization.id)
-    ) ?? [];
-
   if (isLoading) {
     return <UserDetailSkeleton />;
   }
@@ -341,140 +219,113 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
         </Button>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="organizations">Organizations</TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col gap-10 lg:flex-row">
+        <Card className="max-w-4xl lg:flex-1">
+          <CardHeader>
+            <CardTitle>User Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form id="user-form" onSubmit={form.handleSubmit(onSubmit)}>
+              <FieldGroup>
+                <Controller
+                  name="displayName"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="user-display-name">Name</FieldLabel>
+                      <Input
+                        {...field}
+                        id="user-display-name"
+                        aria-invalid={fieldState.invalid}
+                        placeholder="Enter display name"
+                        disabled={updateUserMutation.isPending}
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
 
-        <TabsContent value="profile" className="space-y-6">
-          <div className="flex flex-col gap-10 lg:flex-row">
-            <Card className="max-w-4xl lg:flex-1">
-              <CardHeader>
-                <CardTitle>User Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form id="user-form" onSubmit={form.handleSubmit(onSubmit)}>
-                  <FieldGroup>
-                    <Controller
-                      name="displayName"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor="user-display-name">Name</FieldLabel>
-                          <Input
-                            {...field}
-                            id="user-display-name"
-                            aria-invalid={fieldState.invalid}
-                            placeholder="Enter display name"
-                            disabled={updateUserMutation.isPending}
-                          />
-                          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                        </Field>
-                      )}
-                    />
+                <Controller
+                  name="emailVerified"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="user-email-verified">Email Verified</FieldLabel>
+                      <FieldDescription>
+                        Whether the user&apos;s email address is verified
+                      </FieldDescription>
+                      <FieldContent>
+                        <Switch
+                          id="user-email-verified"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateUserMutation.isPending}
+                        />
+                      </FieldContent>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
 
-                    <Controller
-                      name="emailVerified"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor="user-email-verified">Email Verified</FieldLabel>
-                          <FieldDescription>
-                            Whether the user&apos;s email address is verified
-                          </FieldDescription>
-                          <FieldContent>
-                            <Switch
-                              id="user-email-verified"
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={updateUserMutation.isPending}
-                            />
-                          </FieldContent>
-                          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                        </Field>
-                      )}
-                    />
+                <Controller
+                  name="role"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="user-is-admin">Is Admin</FieldLabel>
+                      <FieldDescription>
+                        Whether the user has administrative privileges
+                      </FieldDescription>
+                      <FieldContent>
+                        <Switch
+                          id="user-is-admin"
+                          checked={field.value === USER_ROLES.ADMIN}
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked ? USER_ROLES.ADMIN : USER_ROLES.USER);
+                          }}
+                          disabled={updateUserMutation.isPending}
+                        />
+                      </FieldContent>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
 
-                    <Controller
-                      name="role"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                          <FieldLabel htmlFor="user-is-admin">Is Admin</FieldLabel>
-                          <FieldDescription>
-                            Whether the user has administrative privileges
-                          </FieldDescription>
-                          <FieldContent>
-                            <Switch
-                              id="user-is-admin"
-                              checked={field.value === USER_ROLES.ADMIN}
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked ? USER_ROLES.ADMIN : USER_ROLES.USER);
-                              }}
-                              disabled={updateUserMutation.isPending}
-                            />
-                          </FieldContent>
-                          {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                        </Field>
-                      )}
-                    />
-
-                    <div>
-                      <Button type="submit" disabled={updateUserMutation.isPending || !hasChanges}>
-                        {updateUserMutation.isPending && (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        )}
-                        Save Changes
-                      </Button>
-                    </div>
-                  </FieldGroup>
-                </form>
-              </CardContent>
-            </Card>
-
-            <aside className="space-y-6">
-              <dl className="space-y-4">
-                <div className="space-y-1">
-                  <dt className="text-muted-foreground text-xs">User ID</dt>
-                  <dd className="text-sm break-all">{user.id}</dd>
+                <div>
+                  <Button type="submit" disabled={updateUserMutation.isPending || !hasChanges}>
+                    {updateUserMutation.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    Save Changes
+                  </Button>
                 </div>
+              </FieldGroup>
+            </form>
+          </CardContent>
+        </Card>
 
-                <div className="space-y-1">
-                  <dt className="text-muted-foreground text-xs">Email</dt>
-                  <dd className="text-sm">{user.email}</dd>
-                </div>
+        <aside className="space-y-6">
+          <dl className="space-y-4">
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">User ID</dt>
+              <dd className="text-sm break-all">{user.id}</dd>
+            </div>
 
-                <div className="space-y-1">
-                  <dt className="text-muted-foreground text-xs">User since</dt>
-                  <dd className="text-sm">{format(new Date(user.createdAt), 'MMM d, yyyy')}</dd>
-                </div>
-              </dl>
-              <span className="text-muted-foreground text-xs">
-                Last updated at {format(new Date(user.updatedAt), 'MMM d, yyyy')}
-              </span>
-            </aside>
-          </div>
-        </TabsContent>
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">Email</dt>
+              <dd className="text-sm">{user.email}</dd>
+            </div>
 
-        <TabsContent value="organizations" className="space-y-6">
-          <UserOrganizationsDataTable
-            memberships={membershipsData?.memberships ?? []}
-            total={membershipsData?.total ?? 0}
-            page={membershipsData?.page ?? 1}
-            pageSize={membershipsData?.pageSize ?? 20}
-            totalPages={membershipsData?.totalPages ?? 0}
-            searchQuery={inputValue}
-            onSearchChange={handleSearchChange}
-            onPageChange={pagination.setPage}
-            onPageSizeChange={pagination.setPageSize}
-            onView={handleViewOrganization}
-            onRemove={handleRemoveMembership}
-            onRoleChange={handleRoleChange}
-            onAdd={() => setAddToOrgDialogOpen(true)}
-          />
-        </TabsContent>
-      </Tabs>
+            <div className="space-y-1">
+              <dt className="text-muted-foreground text-xs">User since</dt>
+              <dd className="text-sm">{format(new Date(user.createdAt), 'MMM d, yyyy')}</dd>
+            </div>
+          </dl>
+          <span className="text-muted-foreground text-xs">
+            Last updated at {format(new Date(user.updatedAt), 'MMM d, yyyy')}
+          </span>
+        </aside>
+      </div>
 
       <AlertDialog
         open={deleteDialogOpen || deleteUser.isPending}
@@ -497,37 +348,6 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog
-        open={membershipDeleteDialogOpen || isDeleting}
-        onOpenChange={setMembershipDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Membership?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {membershipToDelete &&
-                `Are you sure you want to remove ${membershipToDelete.userName} from ${membershipToDelete.orgName}? This action cannot be undone.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMembershipConfirm} disabled={isDeleting}>
-              {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AddToOrganizationDialog
-        open={addToOrgDialogOpen || isCreating}
-        onOpenChange={setAddToOrgDialogOpen}
-        onSubmit={handleAddToOrgSubmit}
-        isPending={isCreating}
-        userId={resolvedParams.id}
-        availableOrganizations={availableOrganizations}
-      />
 
       <AlertDialog
         open={confirmUpdateDialogOpen || (confirmUpdateDialogOpen && updateUserMutation.isPending)}

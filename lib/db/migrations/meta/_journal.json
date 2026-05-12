@@ -64,6 +64,13 @@
       "when": 1768919806095,
       "tag": "0008_strange_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778570340531,
+      "tag": "0009_remove_orgs_add_user_subscriptions",
+      "breakpoints": true
     }
   ]
 }
