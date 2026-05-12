@@ -245,11 +245,7 @@ export async function deleteUserProfileImage(userId: string): Promise<string> {
  * Add domain-specific validation here as the application grows.
  */
 export async function validateUserDeletion(userId: string): Promise<void> {
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
 
   if (!user) {
     throw new Error(ERROR_MESSAGES.USER_NOT_FOUND, { cause: ERRORS.NOT_FOUND });

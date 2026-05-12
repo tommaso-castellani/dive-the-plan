@@ -293,9 +293,7 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
 
                 <div>
                   <Button type="submit" disabled={updateUserMutation.isPending || !hasChanges}>
-                    {updateUserMutation.isPending && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
+                    {updateUserMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save Changes
                   </Button>
                 </div>

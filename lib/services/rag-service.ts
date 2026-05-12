@@ -11,10 +11,7 @@ import { type NewRagSettings, type RagSettings, ragSettings } from '@/lib/db/sch
 export async function getRAGSettings(
   userId: NewRagSettings['userId']
 ): Promise<RagSettings | null> {
-  const [settings] = await db
-    .select()
-    .from(ragSettings)
-    .where(eq(ragSettings.userId, userId));
+  const [settings] = await db.select().from(ragSettings).where(eq(ragSettings.userId, userId));
 
   return settings ?? null;
 }

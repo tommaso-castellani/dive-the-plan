@@ -23,9 +23,7 @@ export function getLlmLogsColumns(): ColumnDef<LlmLogRow>[] {
     {
       accessorKey: 'endpoint',
       header: 'Endpoint',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.endpoint ?? '—'}</span>
-      ),
+      cell: ({ row }) => <span className="font-mono text-xs">{row.original.endpoint ?? '—'}</span>,
     },
     {
       accessorKey: 'model',
@@ -44,9 +42,7 @@ export function getLlmLogsColumns(): ColumnDef<LlmLogRow>[] {
     {
       accessorKey: 'tokensUsed',
       header: 'Tokens',
-      cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.original.tokensUsed ?? 0}</span>
-      ),
+      cell: ({ row }) => <span className="font-mono text-sm">{row.original.tokensUsed ?? 0}</span>,
     },
     {
       accessorKey: 'responseTimeMs',

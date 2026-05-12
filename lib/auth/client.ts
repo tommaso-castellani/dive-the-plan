@@ -3,11 +3,7 @@
  * Client-side auth utilities
  * See: https://www.better-auth.com/docs/integrations/next
  */
-import {
-  adminClient,
-  emailOTPClient,
-  inferAdditionalFields,
-} from 'better-auth/client/plugins';
+import { adminClient, emailOTPClient, inferAdditionalFields } from 'better-auth/client/plugins';
 import { customSessionClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 

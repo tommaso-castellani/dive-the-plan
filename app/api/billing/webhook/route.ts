@@ -158,11 +158,7 @@ function getTier(subscription: Stripe.Subscription): string | null {
  * Helper: Verify user exists in the database
  */
 async function userExists(userId: string): Promise<boolean> {
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
   return !!user;
 }
 

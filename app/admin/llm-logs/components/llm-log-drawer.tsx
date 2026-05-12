@@ -57,15 +57,10 @@ export function LlmLogDrawer({ logId, open, onOpenChange }: LlmLogDrawerProps) {
               <Row
                 label="User"
                 value={
-                  log.user
-                    ? `${log.user.displayName ?? log.user.email} (${log.user.email})`
-                    : '—'
+                  log.user ? `${log.user.displayName ?? log.user.email} (${log.user.email})` : '—'
                 }
               />
-              <Row
-                label="Chat Session"
-                value={log.chatSession ? log.chatSession.title : '—'}
-              />
+              <Row label="Chat Session" value={log.chatSession ? log.chatSession.title : '—'} />
               <Row label="Tokens Used" value={log.tokensUsed} />
               <Row label="Prompt Tokens" value={log.promptTokens} />
               <Row label="Completion Tokens" value={log.completionTokens} />

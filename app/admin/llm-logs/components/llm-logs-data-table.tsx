@@ -2,12 +2,7 @@
 
 import * as React from 'react';
 
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { inferRouterOutputs } from '@trpc/server';
 import { Search } from 'lucide-react';
 

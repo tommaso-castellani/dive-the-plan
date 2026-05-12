@@ -26,8 +26,8 @@ import {
   SubscriptionStatus,
   SubscriptionTier,
   activityLogs,
-  users,
   userSubscriptions,
+  users,
 } from '../schema';
 
 if (process.env.NODE_ENV === 'production') {
@@ -115,7 +115,11 @@ async function seed() {
       console.warn('     Error:', error instanceof Error ? error.message : error);
     }
 
-    async function createFreeTierSubscription(user: { id: string; email: string; displayName: string }) {
+    async function createFreeTierSubscription(user: {
+      id: string;
+      email: string;
+      displayName: string;
+    }) {
       if (!freePriceId) {
         console.log(`  ℹ️  ${user.email}: No Stripe prices found - skipping subscription`);
         return;
