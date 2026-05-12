@@ -18,37 +18,3 @@ export async function getRAGSettings(
 
   return settings ?? null;
 }
-
-/**
- * Update RAG settings for a user
- * Creates settings if they don't exist
- * @param settings - The settings to update
- * @returns The updated RAG settings
- */
-export async function updateRAGSettings(settings: NewRagSettings): Promise<RagSettings> {
-  const { userId, ...updates } = settings;
-  // Check if settings exist
-  const existing = await getRAGSettings(userId);
-
-  if (existing) {
-    // Update existing settings
-    const [updated] = await db
-      .update(ragSettings)
-      .set(updates)
-      .where(eq(ragSettings.userId, userId))
-      .returning();
-
-    return updated;
-  } else {
-    // Create new settings
-    const [created] = await db
-      .insert(ragSettings)
-      .values({
-        userId,
-        ...updates,
-      })
-      .returning();
-
-    return created;
-  }
-}

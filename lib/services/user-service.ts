@@ -241,7 +241,7 @@ export async function deleteUserProfileImage(userId: string): Promise<string> {
  * Validate if a user can be deleted
  *
  * Currently a no-op placeholder: deletion cascades remove subscriptions, documents,
- * chat sessions, etc. Stripe customer cleanup is handled by `deleteStripeCustomer`.
+ * chat sessions, etc.
  * Add domain-specific validation here as the application grows.
  */
 export async function validateUserDeletion(userId: string): Promise<void> {

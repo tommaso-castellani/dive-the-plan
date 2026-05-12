@@ -24,8 +24,6 @@ export {
   createCustomerPortalSession,
   cancelPendingDowngrade,
   getPricingFromStripe,
-  createFreeTierSubscription,
-  deleteStripeCustomer,
 } from './operations';
 
 // Configuration and constants

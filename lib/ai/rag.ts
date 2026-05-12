@@ -125,18 +125,3 @@ export async function deleteDocumentFromFileSearchStore({ name }: DeleteDocument
   });
 }
 
-/**
- * List all File Search Stores
- */
-export async function listFileSearchStores() {
-  const client = await getClient();
-  return client.fileSearchStores.list();
-}
-
-/**
- * List all documents in a File Search Store
- */
-export async function listDocuments(fileSearchStoreName: string) {
-  const client = await getClient();
-  return client.fileSearchStores.documents.list({ parent: fileSearchStoreName });
-}
