@@ -17,7 +17,7 @@ const HomepageStructuredData = () => {
   const websiteData = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Dive the plan',
+    name: 'Dive the Plan',
     description:
       'Production-ready Next.js template with auth, billing, database, and deployment. Skip the boilerplate and ship features fast.',
     url: baseUrl,
@@ -27,7 +27,7 @@ const HomepageStructuredData = () => {
   const softwareData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Dive the plan',
+    name: 'Dive the Plan',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Web Browser',
     description:
@@ -39,7 +39,7 @@ const HomepageStructuredData = () => {
     },
     author: {
       '@type': 'Organization',
-      name: 'Dive the plan',
+      name: 'Dive the Plan',
     },
     programmingLanguage: ['TypeScript', 'JavaScript', 'React'],
     runtimePlatform: 'Node.js',

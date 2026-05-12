@@ -23,8 +23,8 @@ const ogImageSquare = `${baseUrl}/og-image-square.png`;
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    template: '%s | Dive the plan',
-    default: 'Dive the plan',
+    template: '%s | Dive the Plan',
+    default: 'Dive the Plan',
   },
   description:
     'Production-ready Next.js template with auth, billing, database, and deployment. Skip the boilerplate and ship features fast.',
@@ -40,11 +40,11 @@ export const metadata: Metadata = {
     'Starter Template',
     'Boilerplate',
   ],
-  authors: [{ name: 'Dive the plan' }],
-  creator: 'Dive the plan',
-  publisher: 'Dive the plan',
+  authors: [{ name: 'Dive the Plan' }],
+  creator: 'Dive the Plan',
+  publisher: 'Dive the Plan',
   openGraph: {
-    title: 'Dive the plan - Production-Ready Next.js Starter',
+    title: 'Dive the Plan - Production-Ready Next.js Starter',
     description:
       'Production-ready Next.js template with auth, billing, database, and deployment. Skip the boilerplate and ship features fast.',
     type: 'website',
@@ -53,19 +53,19 @@ export const metadata: Metadata = {
         url: ogImage,
         width: 1200,
         height: 630,
-        alt: 'Dive the plan - Production-Ready Next.js Starter',
+        alt: 'Dive the Plan - Production-Ready Next.js Starter',
       },
       {
         url: ogImageSquare,
         width: 500,
         height: 500,
-        alt: 'Dive the plan - Production-Ready Next.js Starter',
+        alt: 'Dive the Plan - Production-Ready Next.js Starter',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Dive the plan - Production-Ready Next.js Starter',
+    title: 'Dive the Plan - Production-Ready Next.js Starter',
     description:
       'Production-ready Next.js template with auth, billing, database, and deployment. Skip the boilerplate and ship features fast.',
     images: [
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
         url: ogImage,
         width: 1200,
         height: 630,
-        alt: 'Dive the plan - Production-Ready Next.js Starter',
+        alt: 'Dive the Plan - Production-Ready Next.js Starter',
       },
     ],
   },

@@ -15,7 +15,7 @@ if (process.env.RESEND_API_KEY) {
 // Email configuration
 const EMAIL_CONFIG = {
   FROM_EMAIL: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
-  FROM_NAME: process.env.RESEND_FROM_NAME || 'Dive the plan',
+  FROM_NAME: process.env.RESEND_FROM_NAME || 'Dive the Plan',
   REPLY_TO: process.env.RESEND_REPLY_TO,
 } as const;
 

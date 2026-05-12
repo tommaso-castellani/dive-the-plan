@@ -1,4 +1,4 @@
-# Dive the plan
+# Dive the Plan
 
 [![GitHub Release](https://img.shields.io/github/v/release/Kosuke-Org/kosuke-template?style=flat-square&logo=github&color=blue)](https://github.com/Kosuke-Org/kosuke-template/releases)
 [![License](https://img.shields.io/github/license/Kosuke-Org/kosuke-template?style=flat-square&color=green)](LICENSE)
@@ -36,7 +36,7 @@ Production-ready Next.js 16 SaaS starter with Better Auth Organizations, Stripe 
 
 ## 🤝 Contributing
 
-We welcome contributions to improve Dive the plan! This guide helps you set up your local development environment and submit pull requests.
+We welcome contributions to improve Dive the Plan! This guide helps you set up your local development environment and submit pull requests.
 
 ### Prerequisites
 
@@ -99,7 +99,7 @@ STRIPE_CANCEL_URL=http://localhost:3000/settings/billing
 # Resend Email (from resend.com/api-keys)
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=onboarding@resend.dev
-RESEND_FROM_NAME=Dive the plan
+RESEND_FROM_NAME=Dive the Plan
 
 # Sentry (from sentry.io - optional for local dev)
 NEXT_PUBLIC_SENTRY_DSN=https://...@....ingest.sentry.io/...
