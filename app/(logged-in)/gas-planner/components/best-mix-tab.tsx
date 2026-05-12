@@ -274,14 +274,7 @@ function MODCard({ label, value, secondary, isLimiter }: MODCardProps) {
         isLimiter ? 'bg-primary/10 border-primary/40 border' : 'bg-muted/40'
       )}
     >
-      <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-xs">{label}</p>
-        {isLimiter && (
-          <span className="text-primary text-[10px] font-semibold tracking-wide uppercase">
-            Controlling
-          </span>
-        )}
-      </div>
+      <p className="text-muted-foreground text-xs">{label}</p>
       <p className={cn('mt-1 text-2xl font-semibold tabular-nums', isLimiter && 'text-primary')}>
         {display}
       </p>
