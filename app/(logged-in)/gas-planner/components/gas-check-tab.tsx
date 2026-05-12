@@ -53,7 +53,8 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
   // Treat empty (NaN) O2/He fields as "incomplete" rather than "invalid mix" so
   // the message reflects what the user actually did.
   const hasMixInputs = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
-  const isMixInvalid = hasMixInputs && (o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0);
+  const isMixInvalid =
+    hasMixInputs && (o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0);
   const canCalculate = hasMixInputs && !isMixInvalid && Number.isFinite(depth);
 
   const handleCalculate = () => {
