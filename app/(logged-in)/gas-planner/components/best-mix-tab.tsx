@@ -12,9 +12,10 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+
+import { NumberField } from './number-field';
 
 const DEFAULTS = {
   OC: {
@@ -49,7 +50,16 @@ export function BestMixTab({ mode }: BestMixTabProps) {
   const [waterTemp, setWaterTemp] = useState<number>(20);
   const [result, setResult] = useState<BestMixResult | null>(null);
 
+  // Disable Calculate while any required field is empty / unparseable so we
+  // don't quietly feed NaN into the calculation pipeline.
+  const requiredInputsValid =
+    Number.isFinite(depth) &&
+    Number.isFinite(ppO2) &&
+    Number.isFinite(targetEND) &&
+    (mode === 'OC' || Number.isFinite(maxDensity));
+
   const handleCalculate = () => {
+    if (!requiredInputsValid) return;
     const computed = calculateBestMix({
       mode,
       depth,
@@ -147,7 +157,12 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             </div>
           </div>
 
-          <Button onClick={handleCalculate} className="w-full" size="lg">
+          <Button
+            onClick={handleCalculate}
+            disabled={!requiredInputsValid}
+            className="w-full"
+            size="lg"
+          >
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>
@@ -171,47 +186,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : 0);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ResultsEmpty() {
   return (

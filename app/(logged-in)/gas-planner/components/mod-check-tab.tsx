@@ -14,9 +14,10 @@ import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+
+import { NumberField } from './number-field';
 
 const DEFAULTS = {
   o2Percent: 21,
@@ -44,10 +45,19 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
   const [result, setResult] = useState<MODCheckResult | null>(null);
 
   const n2Percent = Math.max(0, 100 - o2Percent - hePercent);
-  const mixIsValid = o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
+  // Distinguish "empty input" from "explicitly invalid mix" so the readout is
+  // honest while the user is still filling fields in.
+  const hasMixInputs = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
+  const mixIsValid =
+    hasMixInputs && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
+  const canCalculate =
+    mixIsValid &&
+    Number.isFinite(targetPpO2) &&
+    Number.isFinite(targetEND) &&
+    Number.isFinite(targetDensity);
 
   const handleCalculate = () => {
-    if (!mixIsValid) return;
+    if (!canCalculate) return;
     const computed = calculateMODCheck({
       fO2: o2Percent / 100,
       fHe: hePercent / 100,
@@ -102,10 +112,14 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
               <span
                 className={cn(
                   'font-mono tabular-nums',
-                  !mixIsValid && 'text-destructive font-semibold'
+                  hasMixInputs && !mixIsValid && 'text-destructive font-semibold'
                 )}
               >
-                {mixIsValid ? `${n2Percent.toFixed(1)}%` : 'O₂ + He exceeds 100%'}
+                {!hasMixInputs
+                  ? '—'
+                  : mixIsValid
+                    ? `${n2Percent.toFixed(1)}%`
+                    : 'O₂ + He exceeds 100%'}
               </span>
             </div>
           </div>
@@ -172,7 +186,7 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
             </div>
           </div>
 
-          <Button onClick={handleCalculate} disabled={!mixIsValid} className="w-full" size="lg">
+          <Button onClick={handleCalculate} disabled={!canCalculate} className="w-full" size="lg">
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>
@@ -196,47 +210,6 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : 0);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ResultsEmpty() {
   return (
