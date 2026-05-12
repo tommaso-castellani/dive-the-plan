@@ -5,7 +5,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Bot, FileText, FlaskConical, Gauge, LayoutDashboard, Shield } from 'lucide-react';
+import { FlaskConical, Gauge, Shield } from 'lucide-react';
 
 import { useClient } from '@/hooks/use-client';
 import { useUser } from '@/hooks/use-user';
@@ -26,11 +26,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const NAV_ITEMS = [
   {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
     title: 'Gas Planner',
     url: '/gas-planner',
     icon: Gauge,
@@ -39,16 +34,6 @@ const NAV_ITEMS = [
     title: 'Gas Mixer',
     url: '/gas-mixer',
     icon: FlaskConical,
-  },
-  {
-    title: 'Documents',
-    url: '/documents',
-    icon: FileText,
-  },
-  {
-    title: 'Assistant',
-    url: '/assistant',
-    icon: Bot,
   },
 ];
 
