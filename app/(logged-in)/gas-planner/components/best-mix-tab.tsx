@@ -9,27 +9,13 @@ import {
   type DivingMode,
   calculateBestMix,
 } from '@/lib/gas-planner/calculations';
+import { GAS_PLANNER_DEFAULTS, defaultPpO2 } from '@/lib/gas-planner/defaults';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-
-const DEFAULTS = {
-  OC: {
-    depth: 50,
-    ppO2: 1.4,
-    targetEND: 30,
-    maxDensity: 5.2,
-  },
-  CCR: {
-    depth: 70,
-    ppO2: 1.0, // diluent ppO2
-    targetEND: 30,
-    maxDensity: 5.2,
-  },
-};
 
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
@@ -39,17 +25,25 @@ interface BestMixTabProps {
 }
 
 // Note: this component is remounted by the parent when `mode` changes (via
-// `key={mode}`), so initial state derived from `DEFAULTS[mode]` is sufficient
-// to keep inputs in sync with the selected mode — no effect needed.
+// `key={mode}`), so initial state derived from the mode is sufficient to
+// keep inputs in sync — no effect needed. Depth is intentionally left empty
+// (NaN) so the user must enter a value before calculating.
 export function BestMixTab({ mode }: BestMixTabProps) {
-  const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
-  const [ppO2, setPpO2] = useState<number>(DEFAULTS[mode].ppO2);
-  const [targetEND, setTargetEND] = useState<number>(DEFAULTS[mode].targetEND);
-  const [maxDensity, setMaxDensity] = useState<number>(DEFAULTS[mode].maxDensity);
-  const [waterTemp, setWaterTemp] = useState<number>(20);
+  const [depth, setDepth] = useState<number>(NaN);
+  const [ppO2, setPpO2] = useState<number>(defaultPpO2(mode));
+  const [targetEND, setTargetEND] = useState<number>(GAS_PLANNER_DEFAULTS.targetEND);
+  const [maxDensity, setMaxDensity] = useState<number>(GAS_PLANNER_DEFAULTS.maxDensity);
+  const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<BestMixResult | null>(null);
 
+  const requiredFilled =
+    Number.isFinite(depth) &&
+    Number.isFinite(ppO2) &&
+    Number.isFinite(targetEND) &&
+    (mode === 'OC' || Number.isFinite(maxDensity));
+
   const handleCalculate = () => {
+    if (!requiredFilled) return;
     const computed = calculateBestMix({
       mode,
       depth,
@@ -147,7 +141,12 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             </div>
           </div>
 
-          <Button onClick={handleCalculate} className="w-full" size="lg">
+          <Button
+            onClick={handleCalculate}
+            disabled={!requiredFilled}
+            className="w-full"
+            size="lg"
+          >
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>
@@ -201,7 +200,7 @@ function NumberField({ id, icon, label, unit, value, min, max, step, onChange }:
           step={step}
           onChange={(e) => {
             const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : 0);
+            onChange(Number.isFinite(next) ? next : NaN);
           }}
           className="pr-12"
         />
