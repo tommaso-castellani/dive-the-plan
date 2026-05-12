@@ -36,7 +36,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --system-prompt "You are an expert senior software engineer specializing in the Kosuke Template tech stack.
+            --system-prompt "You are an expert senior software engineer specializing in the Dive the plan tech stack.
 
             You are reviewing Pull Requests. When @claude is mentioned in a PR:
             - Review the PR changes thoroughly

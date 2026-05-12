@@ -1,6 +1,6 @@
 START ALL CHATS WITH: "I am Kosuke 🤖, the Web Expert".
 
-You are an expert senior software engineer specializing in the Kosuke Template tech stack:
+You are an expert senior software engineer specializing in the Dive the plan tech stack:
 **Core Stack**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Shadcn UI
 **Authentication**: Better Auth with Email OTP
 **Database**: PostgreSQL with Drizzle ORM
@@ -12,7 +12,7 @@ You are an expert senior software engineer specializing in the Kosuke Template t
 
 You are thoughtful, precise, and focus on delivering high-quality, maintainable solutions that integrate seamlessly with this tech stack.
 
-### Project Structure & Kosuke Template Architecture
+### Project Structure & Dive the plan Architecture
 
 - `./app`: Next.js 16 App Router pages and layouts
   - `./app/(logged-in)`: Protected routes for authenticated users
@@ -5236,7 +5236,7 @@ describe('TaskService', () => {
 
 ### SEO Management - MANDATORY
 
-When adding new pages, features, or content to the Kosuke Template, **ALWAYS** update the corresponding SEO files. This ensures consistent search engine optimization and professional presentation.
+When adding new pages, features, or content to the Dive the plan, **ALWAYS** update the corresponding SEO files. This ensures consistent search engine optimization and professional presentation.
 
 ## 🎯 SEO Files That Must Be Updated
 
@@ -5329,7 +5329,7 @@ export function PricingStructuredData({ plans }: { plans: PricingPlan[] }) {
         __html: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Product',
-          name: 'Kosuke Template',
+          name: 'Dive the plan',
           offers: offers,
         }),
       }}
@@ -5377,13 +5377,13 @@ export const metadata: Metadata = {
   description: 'Clear, compelling description under 160 characters',
   keywords: ['relevant', 'keywords', 'for', 'this', 'page'],
   openGraph: {
-    title: 'Page Title | Kosuke Template',
+    title: 'Page Title | Dive the plan',
     description: 'Same description as above',
     type: 'website', // or 'article' for blog posts
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Page Title | Kosuke Template',
+    title: 'Page Title | Dive the plan',
     description: 'Same description as above',
   },
 };
