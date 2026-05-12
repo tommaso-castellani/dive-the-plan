@@ -13,7 +13,12 @@ import {
   Wind,
 } from 'lucide-react';
 
-import { type FillFirstGas, type FillUpResult, calculateFillUp } from '@/lib/gas-mixer/mixer';
+import {
+  type FillFirstGas,
+  type FillUpResult,
+  type FillUpStep,
+  calculateFillUp,
+} from '@/lib/gas-mixer/mixer';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -274,7 +279,10 @@ export function FillUpTab() {
             {/* Ambient temperature */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="ambient-temp" className="flex items-center gap-2 text-sm font-medium">
+                <Label
+                  htmlFor="ambient-temp"
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
                   <Thermometer className="h-4 w-4" />
                   Ambient Temperature
                 </Label>
@@ -295,12 +303,7 @@ export function FillUpTab() {
             </div>
           </section>
 
-          <Button
-            onClick={handleCalculate}
-            className="w-full"
-            size="lg"
-            disabled={hasInputError}
-          >
+          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={hasInputError}>
             <Calculator className="h-4 w-4" />
             Calculate Fill Plan
           </Button>
@@ -316,11 +319,7 @@ export function FillUpTab() {
           </p>
         </CardHeader>
         <CardContent>
-          {result ? (
-            <ResultsView result={result} ambientTemp={ambientTemp} />
-          ) : (
-            <ResultsEmpty />
-          )}
+          {result ? <ResultsView result={result} ambientTemp={ambientTemp} /> : <ResultsEmpty />}
         </CardContent>
       </Card>
     </div>
@@ -388,9 +387,7 @@ function N2Readout({ value, invalid }: { value: number; invalid: boolean }) {
         <Waves className="text-muted-foreground h-4 w-4" />
         <span className="text-muted-foreground">N₂ (balance)</span>
       </div>
-      <span
-        className={`font-mono text-sm tabular-nums ${invalid ? 'text-destructive' : ''}`}
-      >
+      <span className={`font-mono text-sm tabular-nums ${invalid ? 'text-destructive' : ''}`}>
         {invalid ? 'Invalid mix' : `${value.toFixed(0)}%`}
       </span>
     </div>
@@ -427,15 +424,15 @@ function ResultsView({ result, ambientTemp }: { result: FillUpResult; ambientTem
       <div className="text-muted-foreground flex items-center gap-2 text-xs">
         <Thermometer className="h-3.5 w-3.5" />
         <span>
-          Gauge targets assume tank at thermal equilibrium near {ambientTemp}°C. Allow gases to
-          cool between stages.
+          Gauge targets assume tank at thermal equilibrium near {ambientTemp}°C. Allow gases to cool
+          between stages.
         </span>
       </div>
     </div>
   );
 }
 
-function StepRow({ number, step }: { number: number; step: { gas: 'O2' | 'He' | 'TopUp'; label: string; fromPressure: number; toPressure: number; addedBar: number } }) {
+function StepRow({ number, step }: { number: number; step: FillUpStep }) {
   const isSkipped = step.addedBar < 0.1;
   const accent =
     step.gas === 'O2' ? 'text-chart-1' : step.gas === 'He' ? 'text-chart-2' : 'text-chart-3';
@@ -450,9 +447,7 @@ function StepRow({ number, step }: { number: number; step: { gas: 'O2' | 'He' | 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className={`text-sm font-semibold ${accent}`}>Add {step.label}</span>
-          {isSkipped && (
-            <span className="text-muted-foreground text-xs">— not needed</span>
-          )}
+          {isSkipped && <span className="text-muted-foreground text-xs">— not needed</span>}
         </div>
         <div className="text-muted-foreground mt-1 flex items-center gap-1.5 font-mono text-xs">
           <span>{step.fromPressure.toFixed(1)} bar</span>
@@ -461,9 +456,7 @@ function StepRow({ number, step }: { number: number; step: { gas: 'O2' | 'He' | 
         </div>
       </div>
       <div className="text-right">
-        <div className="text-2xl font-semibold tabular-nums">
-          {step.addedBar.toFixed(1)}
-        </div>
+        <div className="text-2xl font-semibold tabular-nums">{step.addedBar.toFixed(1)}</div>
         <div className="text-muted-foreground text-xs">bar added</div>
       </div>
     </li>

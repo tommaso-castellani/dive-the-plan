@@ -187,12 +187,7 @@ export function TopUpTab() {
             )}
           </section>
 
-          <Button
-            onClick={handleCalculate}
-            className="w-full"
-            size="lg"
-            disabled={hasInputError}
-          >
+          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={hasInputError}>
             <Calculator className="h-4 w-4" />
             Calculate Final Mix
           </Button>
@@ -274,9 +269,7 @@ function N2Readout({ value, invalid }: { value: number; invalid: boolean }) {
         <Waves className="text-muted-foreground h-4 w-4" />
         <span className="text-muted-foreground">N₂ (balance)</span>
       </div>
-      <span
-        className={`font-mono text-sm tabular-nums ${invalid ? 'text-destructive' : ''}`}
-      >
+      <span className={`font-mono text-sm tabular-nums ${invalid ? 'text-destructive' : ''}`}>
         {invalid ? 'Invalid mix' : `${value.toFixed(0)}%`}
       </span>
     </div>

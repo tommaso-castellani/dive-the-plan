@@ -22,7 +22,7 @@
 
 export type FillFirstGas = 'O2' | 'He';
 
-export interface MixerGasFractions {
+interface MixerGasFractions {
   fO2: number;
   fHe: number;
   fN2: number;
@@ -32,7 +32,7 @@ export interface MixerGasFractions {
 // FILL-UP
 // ---------------------------------------------------------------------------
 
-export interface FillUpInput {
+interface FillUpInput {
   /** Tank pressure before filling (bar). Can be 0 for an empty tank. */
   startPressure: number;
   /** Tank pressure after filling (bar). */
@@ -63,9 +63,7 @@ export interface FillUpStep {
   addedBar: number;
 }
 
-export type FillUpFeasibility =
-  | { ok: true }
-  | { ok: false; reason: string };
+type FillUpFeasibility = { ok: true } | { ok: false; reason: string };
 
 export interface FillUpResult {
   /** Three ordered fill steps. */
@@ -195,13 +193,25 @@ export function calculateFillUp(input: FillUpInput): FillUpResult {
     const y = x + dHe;
     steps.push({ gas: 'O2', label: 'Pure O₂', fromPressure: P0, toPressure: x, addedBar: dO2 });
     steps.push({ gas: 'He', label: 'Pure He', fromPressure: x, toPressure: y, addedBar: dHe });
-    steps.push({ gas: 'TopUp', label: topUpLabel, fromPressure: y, toPressure: Pf, addedBar: dTop });
+    steps.push({
+      gas: 'TopUp',
+      label: topUpLabel,
+      fromPressure: y,
+      toPressure: Pf,
+      addedBar: dTop,
+    });
   } else {
     const x = P0 + dHe;
     const y = x + dO2;
     steps.push({ gas: 'He', label: 'Pure He', fromPressure: P0, toPressure: x, addedBar: dHe });
     steps.push({ gas: 'O2', label: 'Pure O₂', fromPressure: x, toPressure: y, addedBar: dO2 });
-    steps.push({ gas: 'TopUp', label: topUpLabel, fromPressure: y, toPressure: Pf, addedBar: dTop });
+    steps.push({
+      gas: 'TopUp',
+      label: topUpLabel,
+      fromPressure: y,
+      toPressure: Pf,
+      addedBar: dTop,
+    });
   }
 
   return {
@@ -237,7 +247,7 @@ function topUpGasLabel(tO2: number, tHe: number): string {
 // TOP-UP
 // ---------------------------------------------------------------------------
 
-export interface TopUpInput {
+interface TopUpInput {
   /** Pressure already in the tank (bar). */
   startPressure: number;
   /** Mix already in the tank (0-1 fractions). */
