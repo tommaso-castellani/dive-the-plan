@@ -12,9 +12,10 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+
+import { NumberField } from './number-field';
 
 const DEFAULTS = {
   OC: {
@@ -49,10 +50,15 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
   // Live N2 readout — clamp to non-negative so users get instant feedback if
   // they accidentally enter O2 + He > 100.
   const n2Percent = Math.max(0, 100 - o2Percent - hePercent);
-  const isMixInvalid = o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0;
+  // Treat empty (NaN) O2/He fields as "incomplete" rather than "invalid mix" so
+  // the message reflects what the user actually did.
+  const hasMixInputs = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
+  const isMixInvalid =
+    hasMixInputs && (o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0);
+  const canCalculate = hasMixInputs && !isMixInvalid && Number.isFinite(depth);
 
   const handleCalculate = () => {
-    if (isMixInvalid) return;
+    if (!canCalculate) return;
     const computed = calculateGasCheck({
       mode,
       depth,
@@ -109,7 +115,7 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
             <span
               className={`font-mono text-sm tabular-nums ${isMixInvalid ? 'text-destructive' : ''}`}
             >
-              {isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
+              {!hasMixInputs ? '—' : isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
             </span>
           </div>
 
@@ -149,7 +155,7 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
             </div>
           </div>
 
-          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={isMixInvalid}>
+          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={!canCalculate}>
             <Calculator className="h-4 w-4" />
             Calculate
           </Button>
@@ -175,47 +181,6 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-interface NumberFieldProps {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  unit: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}
-
-function NumberField({ id, icon, label, unit, value, min, max, step, onChange }: NumberFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="flex items-center gap-2 text-sm font-medium">
-        {icon}
-        {label}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          value={Number.isFinite(value) ? value : ''}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const next = parseFloat(e.target.value);
-            onChange(Number.isFinite(next) ? next : 0);
-          }}
-          className="pr-12"
-        />
-        <span className="text-muted-foreground pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ResultsEmpty() {
   return (
