@@ -34,6 +34,9 @@ const STP_TEMP_K = 273.15;
 /** Conversion: 1 bar increase per 10 meters of seawater. */
 const METERS_PER_BAR = 10;
 
+/** Reference nitrogen fraction in air, used for the N₂-only END convention. */
+const AIR_N2_FRACTION = 0.79;
+
 // ---------------------------------------------------------------------------
 // PRIMITIVES
 // ---------------------------------------------------------------------------
@@ -113,14 +116,21 @@ function calculateGasDensity(
 // ---------------------------------------------------------------------------
 
 /**
- * Equivalent Narcotic Depth (m), treating O2 as equally narcotic to N2.
- *   END = (depth + 10) * (1 - fHe) - 10
+ * Equivalent Narcotic Depth (m) — N₂-only convention.
  *
- * This is the standard technical-diving formulation also used by Subsurface,
- * MultiDeco, and most blending calculators.
+ * The depth at which air would produce the same ppN₂ as the breathing
+ * gas at the current depth. Oxygen is NOT considered narcotic here.
+ *
+ *   ppN₂(depth)        = fN₂ * (depth/10 + 1)
+ *   ppN₂_air(END)      = 0.79 * (END/10 + 1)
+ *   solving for END:
+ *   END = (depth + 10) * fN₂ / 0.79 - 10
+ *
+ * This is the Bühlmann / traditional convention. (Subsurface and a few
+ * other tools default to the alternative "O₂-is-narcotic" formula.)
  */
-function calculateEND(fHe: number, depthMeters: number): number {
-  const end = (depthMeters + METERS_PER_BAR) * (1 - fHe) - METERS_PER_BAR;
+function calculateEND(fN2: number, depthMeters: number): number {
+  const end = ((depthMeters + METERS_PER_BAR) * fN2) / AIR_N2_FRACTION - METERS_PER_BAR;
   return Math.max(0, end);
 }
 
@@ -138,12 +148,15 @@ function calculateMODByPpO2(fO2: number, ppO2Limit: number): number {
 }
 
 /**
- * Maximum Operating Depth from a target END (with the given fHe).
- *   MOD = (target_end + 10) / (1 - fHe) - 10
+ * Maximum Operating Depth from a target END (with the given fN₂).
+ *
+ * Inverse of the N₂-only END formula:
+ *   END = (depth + 10) * fN₂ / 0.79 - 10
+ *   =>  depth = (END + 10) * 0.79 / fN₂ - 10
  */
-function calculateMODByEND(fHe: number, targetENDMeters: number): number {
-  if (fHe >= 1) return Infinity;
-  return (targetENDMeters + METERS_PER_BAR) / (1 - fHe) - METERS_PER_BAR;
+function calculateMODByEND(fN2: number, targetENDMeters: number): number {
+  if (fN2 <= 0) return Infinity;
+  return ((targetENDMeters + METERS_PER_BAR) * AIR_N2_FRACTION) / fN2 - METERS_PER_BAR;
 }
 
 /**
@@ -225,7 +238,7 @@ export function calculateMODCheck(input: MODCheckInput): MODCheckResult {
   const fractions: GasFractions = { fO2, fHe, fN2 };
 
   const modByPpO2 = Math.max(0, calculateMODByPpO2(fO2, input.targetPpO2));
-  const modByEND = Math.max(0, calculateMODByEND(fHe, input.targetEND));
+  const modByEND = Math.max(0, calculateMODByEND(fN2, input.targetEND));
   const modByDensity = Math.max(
     0,
     calculateMODByDensity(fractions, input.targetDensity, input.waterTemp)
@@ -339,7 +352,7 @@ export function calculateGasCheck(input: GasCheckInput): GasCheckResult {
 
   const partialPressures = calculatePartialPressures(fractions, depth);
   const densityAtDepth = calculateGasDensity(fractions, depth, waterTemp);
-  const endAtDepth = calculateEND(fHe, depth);
+  const endAtDepth = calculateEND(fN2, depth);
 
   return {
     fractions,
@@ -371,17 +384,15 @@ export function calculateBestMix(input: BestMixInput): BestMixResult {
   // Clamp into a sensible range. We don't allow > 1.0 (pure O2) or < 0.
   const fO2 = Math.min(1, Math.max(0, rawFO2));
 
-  // Best fHe to keep END <= target.
-  // From: END = (depth + 10)*(1 - fHe) - 10
-  // Solve for fHe when END == targetEND:
-  //   fHe = (depth - targetEND) / (depth + 10)
-  // Clamped: if target END >= depth, no helium needed.
-  // Also ensure fO2 + fHe <= 1.
-  let fHe = 0;
-  if (depth > targetEND) {
-    fHe = (depth - targetEND) / (depth + METERS_PER_BAR);
-  }
-  fHe = Math.max(0, Math.min(1 - fO2, fHe));
+  // Best fHe to keep END <= target (N₂-only convention).
+  // From: END = (depth + 10) * fN₂ / 0.79 - 10
+  //   END <= targetEND  =>  fN₂ <= (targetEND + 10) * 0.79 / (depth + 10)
+  //   fHe = 1 - fO2 - fN2
+  // If the allowed fN₂ is already >= the current fN₂ (i.e. 1 - fO2),
+  // no helium is needed.
+  const maxFN2 = ((targetEND + METERS_PER_BAR) * AIR_N2_FRACTION) / (depth + METERS_PER_BAR);
+  let fHe = Math.max(0, 1 - fO2 - maxFN2);
+  fHe = Math.min(1 - fO2, fHe);
 
   const fN2 = Math.max(0, 1 - fO2 - fHe);
 
@@ -390,7 +401,7 @@ export function calculateBestMix(input: BestMixInput): BestMixResult {
   // Operational metrics for the resulting mix
   const partialPressures = calculatePartialPressures(fractions, depth);
   const densityAtDepth = calculateGasDensity(fractions, depth, waterTemp);
-  const endAtDepth = calculateEND(fHe, depth);
+  const endAtDepth = calculateEND(fN2, depth);
 
   return {
     fractions,
@@ -402,6 +413,6 @@ export function calculateBestMix(input: BestMixInput): BestMixResult {
     endAtDepth,
     modByPpO2: calculateMODByPpO2(fO2, ppO2),
     modByDensity: calculateMODByDensity(fractions, densityLimit, waterTemp),
-    modByEND: calculateMODByEND(fHe, targetEND),
+    modByEND: calculateMODByEND(fN2, targetEND),
   };
 }
