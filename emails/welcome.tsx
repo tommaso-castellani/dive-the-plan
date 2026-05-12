@@ -23,8 +23,8 @@ export const WelcomeEmail = ({
           Welcome, {firstName}! 🎉
         </Text>
         <Text className="mb-4 text-base leading-relaxed text-stone-600">
-          Thank you for joining Dive the Plan! We&apos;re excited to have you on board. Your
-          account (<strong>{email}</strong>) has been successfully created.
+          Thank you for joining Dive the Plan! We&apos;re excited to have you on board. Your account
+          (<strong>{email}</strong>) has been successfully created.
         </Text>
         <Text className="mb-0 text-base leading-relaxed text-stone-600">
           You now have access to a powerful Next.js template with authentication, billing, beautiful

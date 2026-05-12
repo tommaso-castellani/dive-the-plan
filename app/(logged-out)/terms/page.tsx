@@ -23,9 +23,9 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent className="prose prose-neutral dark:prose-invert max-w-none">
               <p>
-                By accessing and using Dive the Plan, you accept and agree to be bound by the
-                terms and provision of this agreement. If you do not agree to abide by the above,
-                please do not use this service.
+                By accessing and using Dive the Plan, you accept and agree to be bound by the terms
+                and provision of this agreement. If you do not agree to abide by the above, please
+                do not use this service.
               </p>
             </CardContent>
           </Card>

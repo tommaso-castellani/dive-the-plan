@@ -89,7 +89,6 @@ export function Home() {
               <span className="block">dive planner</span>
             </h1>
 
-
             <p className="text-muted-foreground mx-auto mb-6 max-w-2xl px-2 font-sans text-base sm:mb-8 sm:text-lg lg:text-xl">
               Production-ready Next.js template with auth, billing, database, and deployment.
             </p>
