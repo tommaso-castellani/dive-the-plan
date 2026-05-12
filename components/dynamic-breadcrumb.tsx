@@ -29,6 +29,7 @@ const routeNames: Record<string, string> = {
   documents: 'Documents',
   assistant: 'Assistant',
   'gas-planner': 'Gas Planner',
+  'gas-mixer': 'Gas Mixer',
   admin: 'Admin',
   users: 'Users',
   'llm-logs': 'LLM Logs',

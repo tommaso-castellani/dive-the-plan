@@ -10,13 +10,13 @@ import {
   calculateBestMix,
 } from '@/lib/gas-planner/calculations';
 import { GAS_PLANNER_DEFAULTS, defaultPpO2 } from '@/lib/gas-planner/defaults';
+import { cn } from '@/lib/utils';
 
+import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-
-import { NumberField } from './number-field';
 
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
@@ -213,16 +213,19 @@ function ResultsView({ result }: { result: BestMixResult }) {
             label="MOD by ppO₂"
             value={result.modByPpO2}
             secondary={`${result.partialPressures.ppO2.toFixed(2)} bar at depth`}
+            isLimiter={result.limiter === 'ppO2'}
           />
           <MODCard
             label="MOD by Density"
             value={result.modByDensity}
             secondary={`${result.densityAtDepth.toFixed(2)} g/L at depth`}
+            isLimiter={result.limiter === 'density'}
           />
           <MODCard
             label="MOD by END"
             value={result.modByEND}
             secondary={`END ${result.endAtDepth.toFixed(0)} m at depth`}
+            isLimiter={result.limiter === 'END'}
           />
         </div>
       </div>
@@ -258,14 +261,22 @@ interface MODCardProps {
   label: string;
   value: number;
   secondary?: string;
+  isLimiter: boolean;
 }
 
-function MODCard({ label, value, secondary }: MODCardProps) {
+function MODCard({ label, value, secondary, isLimiter }: MODCardProps) {
   const display = Number.isFinite(value) ? `${value.toFixed(0)} m` : '—';
   return (
-    <div className="bg-muted/40 rounded-md p-4">
+    <div
+      className={cn(
+        'rounded-md p-4 transition-colors',
+        isLimiter ? 'bg-primary/10 border-primary/40 border' : 'bg-muted/40'
+      )}
+    >
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{display}</p>
+      <p className={cn('mt-1 text-2xl font-semibold tabular-nums', isLimiter && 'text-primary')}>
+        {display}
+      </p>
       {secondary && <p className="text-muted-foreground mt-1 text-xs">{secondary}</p>}
     </div>
   );

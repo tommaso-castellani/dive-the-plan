@@ -299,6 +299,10 @@ export interface BestMixResult {
   modByDensity: number;
   /** MOD by target END (m) */
   modByEND: number;
+  /** Smallest of the three MODs — the actual operational limit (m) */
+  limitingMOD: number;
+  /** Which input limit is the binding (controlling) constraint */
+  limiter: MODLimiter;
 }
 
 const DEFAULT_DENSITY_LIMIT = 5.2;
@@ -403,6 +407,18 @@ export function calculateBestMix(input: BestMixInput): BestMixResult {
   const densityAtDepth = calculateGasDensity(fractions, depth, waterTemp);
   const endAtDepth = calculateEND(fN2, depth);
 
+  const modByPpO2 = calculateMODByPpO2(fO2, ppO2);
+  const modByDensity = calculateMODByDensity(fractions, densityLimit, waterTemp);
+  const modByEND = calculateMODByEND(fN2, targetEND);
+
+  // Pick the lowest as the controlling MOD.
+  const candidates: { value: number; limiter: MODLimiter }[] = [
+    { value: modByPpO2, limiter: 'ppO2' },
+    { value: modByEND, limiter: 'END' },
+    { value: modByDensity, limiter: 'density' },
+  ];
+  const limiting = candidates.reduce((acc, cur) => (cur.value < acc.value ? cur : acc));
+
   return {
     fractions,
     bestO2Percent: fO2 * 100,
@@ -411,8 +427,10 @@ export function calculateBestMix(input: BestMixInput): BestMixResult {
     densityAtDepth,
     partialPressures,
     endAtDepth,
-    modByPpO2: calculateMODByPpO2(fO2, ppO2),
-    modByDensity: calculateMODByDensity(fractions, densityLimit, waterTemp),
-    modByEND: calculateMODByEND(fN2, targetEND),
+    modByPpO2,
+    modByDensity,
+    modByEND,
+    limitingMOD: limiting.value,
+    limiter: limiting.limiter,
   };
 }
