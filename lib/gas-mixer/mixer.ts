@@ -1,23 +1,29 @@
 /**
- * Gas Mixer — partial-pressure blending calculations.
+ * Gas Mixer — partial-pressure blending with real-gas corrections.
  *
  * Two operations:
- *  - Fill-up: from a starting (possibly empty) tank with a known gas, compute
- *    the amounts of pure O₂, pure He, and a top-up gas (e.g. air or EAN32)
- *    needed to reach a target pressure with a target mix.
+ *  - Fill-up: from a starting (possibly empty) tank, compute the amounts of
+ *    pure O₂, pure He, and a top-up gas (e.g. air or EAN32) needed to reach
+ *    a target pressure with a target mix at a given ambient temperature.
+ *    When the existing tank contents make the target unreachable by addition
+ *    alone, a *bleed* step is prepended to drain the tank to a feasible
+ *    starting pressure.
  *  - Top-up: from a known starting mix & pressure, adding a known top-up gas
  *    up to a target pressure, compute the resulting mix.
  *
- * Both use Dalton's law of partial pressures at constant temperature & volume:
- *   For each component i:  n_i ∝ f_i · P
+ * Real-gas treatment (Fill-up):
+ *  - Uses the Van der Waals equation of state with one-fluid mixing rules:
+ *      a_mix = ΣᵢΣⱼ xᵢxⱼ √(aᵢaⱼ)
+ *      b_mix = Σᵢ  xᵢ bᵢ
+ *  - Calculations are performed in molar density (mol/L) so that temperature
+ *    and compressibility correctly influence every step. Each fill increment
+ *    converts the new molar state back into a gauge pressure via VdW,
+ *    so changes in ambient temperature shift the intermediate stop pressures.
  *
  * Conventions:
- *  - Pressures in bar (gauge/absolute treated consistently — math is identical
- *    because we only deal with differences and ratios)
- *  - Gas fractions as decimals (0.21 = 21%)
- *  - Ambient temperature is captured for reference (e.g. cold-tank target);
- *    partial-pressure blending is treated as isothermal — temperature does
- *    not enter the proportion math.
+ *  - Pressures in bar.
+ *  - Gas fractions as decimals (0.21 = 21%).
+ *  - Temperature in degrees Celsius (converted internally to Kelvin).
  */
 
 export type FillFirstGas = 'O2' | 'He';
@@ -26,6 +32,85 @@ interface MixerGasFractions {
   fO2: number;
   fHe: number;
   fN2: number;
+}
+
+// ---------------------------------------------------------------------------
+// VAN DER WAALS REAL-GAS HELPERS
+// ---------------------------------------------------------------------------
+
+/** Van der Waals attraction parameter `a` (bar·L²·mol⁻²) per gas. */
+const VDW_A = { O2: 1.382, He: 0.0346, N2: 1.370 } as const;
+/** Van der Waals excluded-volume parameter `b` (L·mol⁻¹) per gas. */
+const VDW_B = { O2: 0.03186, He: 0.02380, N2: 0.03870 } as const;
+/** Gas constant in L·bar·mol⁻¹·K⁻¹. */
+const R_GAS = 0.0831446;
+
+function mixA(fO2: number, fHe: number, fN2: number): number {
+  const aOO = VDW_A.O2;
+  const aHH = VDW_A.He;
+  const aNN = VDW_A.N2;
+  const aOH = Math.sqrt(aOO * aHH);
+  const aON = Math.sqrt(aOO * aNN);
+  const aHN = Math.sqrt(aHH * aNN);
+  return (
+    fO2 * fO2 * aOO +
+    fHe * fHe * aHH +
+    fN2 * fN2 * aNN +
+    2 * fO2 * fHe * aOH +
+    2 * fO2 * fN2 * aON +
+    2 * fHe * fN2 * aHN
+  );
+}
+
+function mixB(fO2: number, fHe: number, fN2: number): number {
+  return fO2 * VDW_B.O2 + fHe * VDW_B.He + fN2 * VDW_B.N2;
+}
+
+/** Pressure (bar) from molar density (mol/L), temperature (K), and mix. */
+function pressureFromDensity(
+  rho: number,
+  T: number,
+  fO2: number,
+  fHe: number,
+  fN2: number
+): number {
+  if (rho <= 0) return 0;
+  const a = mixA(fO2, fHe, fN2);
+  const b = mixB(fO2, fHe, fN2);
+  const denom = 1 - rho * b;
+  if (denom <= 1e-9) return Number.POSITIVE_INFINITY;
+  return (rho * R_GAS * T) / denom - a * rho * rho;
+}
+
+/**
+ * Molar density (mol/L) from pressure (bar), temperature (K), and mix.
+ * Solves the VdW equation by Newton iteration, seeded with the ideal-gas value.
+ */
+function densityFromPressure(
+  P: number,
+  T: number,
+  fO2: number,
+  fHe: number,
+  fN2: number
+): number {
+  if (P <= 0) return 0;
+  const a = mixA(fO2, fHe, fN2);
+  const b = mixB(fO2, fHe, fN2);
+  let rho = P / (R_GAS * T); // ideal-gas seed
+  for (let i = 0; i < 100; i++) {
+    const oneMinusBR = 1 - rho * b;
+    if (oneMinusBR <= 1e-9) {
+      rho *= 0.5;
+      continue;
+    }
+    const f = (rho * R_GAS * T) / oneMinusBR - a * rho * rho - P;
+    const fprime = (R_GAS * T) / (oneMinusBR * oneMinusBR) - 2 * a * rho;
+    if (Math.abs(fprime) < 1e-12) break;
+    const delta = f / fprime;
+    rho -= delta;
+    if (Math.abs(delta) < 1e-12) break;
+  }
+  return Math.max(0, rho);
 }
 
 // ---------------------------------------------------------------------------
@@ -48,51 +133,58 @@ interface FillUpInput {
   topUpHe: number;
   /** Which pure gas to add first. */
   firstGas: FillFirstGas;
+  /** Ambient temperature in °C (defaults to 20°C). */
+  temperatureC?: number;
 }
 
 export interface FillUpStep {
-  /** Identifier for the gas being added in this step. */
-  gas: 'O2' | 'He' | 'TopUp';
+  /** Identifier for the step. */
+  gas: 'O2' | 'He' | 'TopUp' | 'Bleed';
   /** Human label for display. */
   label: string;
   /** Gauge reading before this step begins (bar). */
   fromPressure: number;
   /** Gauge reading after this step ends (bar). */
   toPressure: number;
-  /** Amount of this gas added (bar). Always ≥ 0 when feasible. */
+  /** Magnitude of the pressure change for this step (bar, always ≥ 0). */
   addedBar: number;
 }
 
 type FillUpFeasibility = { ok: true } | { ok: false; reason: string };
 
 export interface FillUpResult {
-  /** Three ordered fill steps. */
+  /** Ordered steps to follow (may begin with a Bleed step). */
   steps: FillUpStep[];
-  /** Pure O₂ to add (bar). */
+  /** Pure O₂ pressure increment in the fill plan (bar). */
   addO2Bar: number;
-  /** Pure He to add (bar). */
+  /** Pure He pressure increment in the fill plan (bar). */
   addHeBar: number;
-  /** Top-up gas to add (bar). */
+  /** Top-up pressure increment in the fill plan (bar). */
   addTopUpBar: number;
-  /** Whether the requested target is physically achievable from the start. */
+  /** Amount of gas to bleed before the fill (bar). 0 when no bleed is needed. */
+  bleedBar: number;
+  /** Whether the requested target is physically achievable. */
   feasibility: FillUpFeasibility;
 }
 
 /**
  * Compute the fill plan to go from the starting state to the target mix &
- * pressure using pure O₂, pure He, and a top-up gas.
+ * pressure using pure O₂, pure He, and a top-up gas — with a Van der Waals
+ * real-gas correction applied at the user's ambient temperature.
  *
- * The system is fully determined by conservation of each component:
- *   O₂:  P₀·sO₂ + ΔO₂        + ΔT·tO₂ = Pf·fO₂
- *   He:  P₀·sHe        + ΔHe + ΔT·tHe = Pf·fHe
- *   N₂:  P₀·sN₂              + ΔT·tN₂ = Pf·fN₂
+ * Conservation, per unit volume, of the moles of each species:
+ *   ρ_b·s_O2 + n_O2 + n_T·tO2 = ρ_f·f_O2
+ *   ρ_b·s_He + n_He + n_T·tHe = ρ_f·f_He
+ *   ρ_b·s_N2          + n_T·tN2 = ρ_f·f_N2
  *
- * From the N₂ equation (the top-up is the only N₂ source we add):
- *   ΔT = (Pf·fN₂ − P₀·sN₂) / tN₂
- * Then ΔO₂ and ΔHe follow directly.
+ * ρ_b is the molar density just before refilling — equal to ρ₀ when no bleed
+ * is needed, otherwise reduced so that all three additions stay non-negative.
+ * From the N₂ row (when tN2 > 0):
+ *   n_T = (ρ_f·f_N2 − ρ_b·s_N2) / tN2,
+ * then n_O2 and n_He follow directly. We pick the largest feasible ρ_b ≤ ρ₀
+ * and emit a Bleed step when ρ_b < ρ₀.
  */
 export function calculateFillUp(input: FillUpInput): FillUpResult {
-  // Normalize / clamp fractions.
   const sO2 = clamp01(input.startO2);
   const sHe = clamp01(input.startHe);
   const sN2 = Math.max(0, 1 - sO2 - sHe);
@@ -107,128 +199,215 @@ export function calculateFillUp(input: FillUpInput): FillUpResult {
 
   const P0 = Math.max(0, input.startPressure);
   const Pf = Math.max(0, input.endPressure);
+  const T = (input.temperatureC ?? 20) + 273.15;
 
-  // Basic feasibility: must be adding gas.
-  if (Pf <= P0) {
-    return failedResult(P0, 'End pressure must be greater than start pressure.');
-  }
-
-  // If start mix is invalid (sum > 1), bail.
   if (input.startO2 + input.startHe > 1 + 1e-9) {
-    return failedResult(P0, 'Starting O₂ + He cannot exceed 100%.');
+    return failedResult('Starting O₂ + He cannot exceed 100%.');
   }
   if (input.finalO2 + input.finalHe > 1 + 1e-9) {
-    return failedResult(P0, 'Final O₂ + He cannot exceed 100%.');
+    return failedResult('Final O₂ + He cannot exceed 100%.');
   }
   if (input.topUpO2 + input.topUpHe > 1 + 1e-9) {
-    return failedResult(P0, 'Top-up O₂ + He cannot exceed 100%.');
+    return failedResult('Top-up O₂ + He cannot exceed 100%.');
+  }
+  if (Pf <= 0) {
+    return failedResult('Final pressure must be greater than 0.');
+  }
+  if (Pf <= P0) {
+    return failedResult('Final pressure must be greater than starting pressure.');
   }
 
-  // Solve for ΔT from N₂ conservation.
-  const targetN2Moles = Pf * fN2;
-  const startN2Moles = P0 * sN2;
-  const neededN2 = targetN2Moles - startN2Moles;
+  // Molar densities (mol/L) at start and target.
+  const rho0 = densityFromPressure(P0, T, sO2, sHe, sN2);
+  const rhof = densityFromPressure(Pf, T, fO2, fHe, fN2);
 
-  let addTopUpBar: number;
+  // Determine the maximum feasible ρ_b ≤ ρ₀.
+  // Each addition n_X is linear in ρ_b → upper-bound constraints when the
+  // coefficient on ρ_b is positive, lower-bound constraints otherwise.
+  const upperBounds: number[] = [];
+  let hardInfeasible: string | null = null;
 
-  if (tN2 < 1e-9) {
-    // Top-up gas has (effectively) no N₂. The N₂ already in the tank must
-    // exactly match the target — otherwise no amount of top-up can correct it.
-    if (Math.abs(neededN2) > 1e-6) {
-      return failedResult(
-        P0,
-        'Top-up gas has no N₂, so the existing N₂ in the tank already fixes the final mix — pick a different top-up gas.'
-      );
+  if (tN2 > 1e-9) {
+    // n_T ≥ 0
+    if (sN2 > 1e-9) upperBounds.push((rhof * fN2) / sN2);
+
+    // n_O2 ≥ 0  →  A_O2 − B_O2·ρ_b ≥ 0
+    const aO2 = rhof * fO2 - (rhof * fN2 * tO2) / tN2;
+    const bO2Coef = sO2 - (sN2 * tO2) / tN2;
+    if (Math.abs(bO2Coef) < 1e-12) {
+      if (aO2 < -1e-9) {
+        hardInfeasible = 'Top-up gas is too rich in O₂ for the desired mix.';
+      }
+    } else if (bO2Coef > 0) {
+      upperBounds.push(aO2 / bO2Coef);
+    } else if (aO2 / bO2Coef > rho0 + 1e-9) {
+      hardInfeasible = 'Not enough gas in the tank to reach this mix with the chosen top-up.';
     }
-    // With no N₂ in either side, the top-up amount is whatever balance is
-    // left after pure O₂ + He additions. We'll solve via the pressure
-    // equation instead. For simplicity we set addTopUpBar = 0 and let the
-    // remaining pressure be filled by pure gases.
-    addTopUpBar = 0;
+
+    // n_He ≥ 0  →  A_He − B_He·ρ_b ≥ 0
+    const aHe = rhof * fHe - (rhof * fN2 * tHe) / tN2;
+    const bHeCoef = sHe - (sN2 * tHe) / tN2;
+    if (Math.abs(bHeCoef) < 1e-12) {
+      if (aHe < -1e-9) {
+        hardInfeasible = hardInfeasible ?? 'Top-up gas is too rich in He for the desired mix.';
+      }
+    } else if (bHeCoef > 0) {
+      upperBounds.push(aHe / bHeCoef);
+    } else if (aHe / bHeCoef > rho0 + 1e-9) {
+      hardInfeasible =
+        hardInfeasible ?? 'Not enough He in the tank to reach this mix with the chosen top-up.';
+    }
   } else {
-    addTopUpBar = neededN2 / tN2;
+    // Top-up has no N₂ — the existing N₂ in the tank must exactly match the target.
+    if (fN2 > 1e-9) {
+      if (sN2 < 1e-9) {
+        hardInfeasible = 'Top-up gas has no N₂ but the target mix needs N₂.';
+      } else {
+        const requiredRhoB = (rhof * fN2) / sN2;
+        if (requiredRhoB > rho0 + 1e-9) {
+          hardInfeasible = 'Not enough N₂ in the tank to reach this target with this top-up.';
+        } else {
+          upperBounds.push(requiredRhoB);
+        }
+      }
+    }
   }
 
-  const addO2Bar = Pf * fO2 - P0 * sO2 - addTopUpBar * tO2;
-  const addHeBar = Pf * fHe - P0 * sHe - addTopUpBar * tHe;
-
-  // Pressure-balance sanity check (within floating tolerance).
-  const totalAdded = addO2Bar + addHeBar + addTopUpBar;
-  const expectedAdded = Pf - P0;
-  if (Math.abs(totalAdded - expectedAdded) > 1e-3) {
-    return failedResult(P0, 'Could not balance the fill — check your inputs.');
+  if (hardInfeasible) {
+    return failedResult(hardInfeasible);
   }
 
-  // Feasibility: each component must be non-negative.
-  if (addO2Bar < -1e-6) {
-    return failedResult(
-      P0,
-      'Cannot reach this mix — starting O₂ + top-up O₂ already exceed the target. Try a leaner top-up gas or drain the tank first.'
-    );
-  }
-  if (addHeBar < -1e-6) {
-    return failedResult(
-      P0,
-      'Cannot reach this mix — starting He already exceeds the target. Drain the tank first.'
-    );
-  }
-  if (addTopUpBar < -1e-6) {
-    return failedResult(
-      P0,
-      'Cannot reach this mix — the existing N₂ already exceeds the target. Drain the tank or pick a richer top-up gas.'
-    );
+  const rhoMaxRaw = upperBounds.length > 0 ? Math.min(rho0, ...upperBounds) : rho0;
+  const rhoB = Math.max(0, rhoMaxRaw);
+
+  // Required additions in mol/L at the chosen ρ_b.
+  const nT_raw = tN2 > 1e-9 ? (rhof * fN2 - rhoB * sN2) / tN2 : 0;
+  const nO2_raw = rhof * fO2 - rhoB * sO2 - nT_raw * tO2;
+  const nHe_raw = rhof * fHe - rhoB * sHe - nT_raw * tHe;
+
+  if (nT_raw < -1e-6 || nO2_raw < -1e-6 || nHe_raw < -1e-6) {
+    return failedResult('Target unreachable with these inputs.');
   }
 
-  // Round trivially negative values to 0 (floating-point noise).
-  const dO2 = Math.max(0, addO2Bar);
-  const dHe = Math.max(0, addHeBar);
-  const dTop = Math.max(0, addTopUpBar);
+  const nT = Math.max(0, nT_raw);
+  const nO2 = Math.max(0, nO2_raw);
+  const nHe = Math.max(0, nHe_raw);
 
-  // Build the ordered fill steps.
-  const topUpLabel = topUpGasLabel(tO2, tHe);
+  // Bleed-down pressure (the gauge reading the diver should hit before refilling).
+  const Pbleed = rhoB < rho0 - 1e-9 ? pressureFromDensity(rhoB, T, sO2, sHe, sN2) : P0;
+  const bleedBar = Math.max(0, P0 - Pbleed);
+
+  // Walk the fill sequentially. After each addition we recompute the gauge
+  // pressure from the new molar state using Van der Waals.
+  let cO2 = rhoB * sO2;
+  let cHe = rhoB * sHe;
+  let cN2 = rhoB * sN2;
+  let curP = Pbleed;
+
+  const computeP = (no2: number, nhe: number, nn2: number): number => {
+    const total = no2 + nhe + nn2;
+    if (total <= 0) return 0;
+    return pressureFromDensity(total, T, no2 / total, nhe / total, nn2 / total);
+  };
+
   const steps: FillUpStep[] = [];
 
-  if (input.firstGas === 'O2') {
-    const x = P0 + dO2;
-    const y = x + dHe;
-    steps.push({ gas: 'O2', label: 'Pure O₂', fromPressure: P0, toPressure: x, addedBar: dO2 });
-    steps.push({ gas: 'He', label: 'Pure He', fromPressure: x, toPressure: y, addedBar: dHe });
+  if (bleedBar > 0.05) {
+    steps.push({
+      gas: 'Bleed',
+      label: 'Bleed Tank',
+      fromPressure: P0,
+      toPressure: Pbleed,
+      addedBar: bleedBar,
+    });
+  }
+
+  const topUpLabel = topUpGasLabel(tO2, tHe);
+
+  const addO2Step = (): number => {
+    const before = curP;
+    if (nO2 > 0) {
+      cO2 += nO2;
+      curP = computeP(cO2, cHe, cN2);
+    }
+    const delta = curP - before;
+    steps.push({
+      gas: 'O2',
+      label: 'Pure O₂',
+      fromPressure: before,
+      toPressure: curP,
+      addedBar: delta,
+    });
+    return delta;
+  };
+
+  const addHeStep = (): number => {
+    const before = curP;
+    if (nHe > 0) {
+      cHe += nHe;
+      curP = computeP(cO2, cHe, cN2);
+    }
+    const delta = curP - before;
+    steps.push({
+      gas: 'He',
+      label: 'Pure He',
+      fromPressure: before,
+      toPressure: curP,
+      addedBar: delta,
+    });
+    return delta;
+  };
+
+  const addTopUpStep = (): number => {
+    const before = curP;
+    if (nT > 0) {
+      cO2 += nT * tO2;
+      cHe += nT * tHe;
+      cN2 += nT * tN2;
+      curP = computeP(cO2, cHe, cN2);
+    }
+    const delta = curP - before;
     steps.push({
       gas: 'TopUp',
       label: topUpLabel,
-      fromPressure: y,
-      toPressure: Pf,
-      addedBar: dTop,
+      fromPressure: before,
+      toPressure: curP,
+      addedBar: delta,
     });
+    return delta;
+  };
+
+  let addO2Bar: number;
+  let addHeBar: number;
+  let addTopUpBar: number;
+
+  if (input.firstGas === 'He') {
+    addHeBar = addHeStep();
+    addO2Bar = addO2Step();
+    addTopUpBar = addTopUpStep();
   } else {
-    const x = P0 + dHe;
-    const y = x + dO2;
-    steps.push({ gas: 'He', label: 'Pure He', fromPressure: P0, toPressure: x, addedBar: dHe });
-    steps.push({ gas: 'O2', label: 'Pure O₂', fromPressure: x, toPressure: y, addedBar: dO2 });
-    steps.push({
-      gas: 'TopUp',
-      label: topUpLabel,
-      fromPressure: y,
-      toPressure: Pf,
-      addedBar: dTop,
-    });
+    addO2Bar = addO2Step();
+    addHeBar = addHeStep();
+    addTopUpBar = addTopUpStep();
   }
 
   return {
     steps,
-    addO2Bar: dO2,
-    addHeBar: dHe,
-    addTopUpBar: dTop,
+    addO2Bar,
+    addHeBar,
+    addTopUpBar,
+    bleedBar,
     feasibility: { ok: true },
   };
 }
 
-function failedResult(startPressure: number, reason: string): FillUpResult {
+function failedResult(reason: string): FillUpResult {
   return {
     steps: [],
     addO2Bar: 0,
     addHeBar: 0,
     addTopUpBar: 0,
+    bleedBar: 0,
     feasibility: { ok: false, reason },
   };
 }
@@ -237,7 +416,6 @@ function failedResult(startPressure: number, reason: string): FillUpResult {
 function topUpGasLabel(tO2: number, tHe: number): string {
   const o2Pct = Math.round(tO2 * 100);
   const hePct = Math.round(tHe * 100);
-  // Air ≈ 21% O₂, 0% He.
   if (hePct === 0 && Math.abs(tO2 - 0.21) < 0.005) return 'Air (21%)';
   if (hePct === 0) return `EAN${o2Pct}`;
   return `Trimix ${o2Pct}/${hePct}`;
@@ -279,7 +457,7 @@ export interface TopUpResult {
  * Given an initial mix at a given pressure, compute the resulting mix after
  * adding a known top-up gas up to a final pressure.
  *
- * For each component:
+ * For each component (Dalton's law, isothermal & isochoric):
  *   f_final_i = (P₀·s_i + ΔT·t_i) / Pf,   ΔT = Pf − P₀
  */
 export function calculateTopUp(input: TopUpInput): TopUpResult {

@@ -87,6 +87,7 @@ export function FillUpTab() {
         topUpO2: topUpO2Percent / 100,
         topUpHe: topUpHePercent / 100,
         firstGas,
+        temperatureC: ambientTemp,
       })
     );
   };
@@ -433,9 +434,19 @@ function ResultsView({ result, ambientTemp }: { result: FillUpResult; ambientTem
 }
 
 function StepRow({ number, step }: { number: number; step: FillUpStep }) {
-  const isSkipped = step.addedBar < 0.1;
-  const accent =
-    step.gas === 'O2' ? 'text-chart-1' : step.gas === 'He' ? 'text-chart-2' : 'text-chart-3';
+  const isBleed = step.gas === 'Bleed';
+  const isSkipped = !isBleed && step.addedBar < 0.1;
+
+  const accent = isBleed
+    ? 'text-destructive'
+    : step.gas === 'O2'
+      ? 'text-chart-1'
+      : step.gas === 'He'
+        ? 'text-chart-2'
+        : 'text-chart-3';
+
+  const title = isBleed ? step.label : `Add ${step.label}`;
+  const unitCaption = isBleed ? 'bar released' : 'bar added';
 
   return (
     <li
@@ -446,7 +457,7 @@ function StepRow({ number, step }: { number: number; step: FillUpStep }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className={`text-sm font-semibold ${accent}`}>Add {step.label}</span>
+          <span className={`text-sm font-semibold ${accent}`}>{title}</span>
           {isSkipped && <span className="text-muted-foreground text-xs">— not needed</span>}
         </div>
         <div className="text-muted-foreground mt-1 flex items-center gap-1.5 font-mono text-xs">
@@ -457,7 +468,7 @@ function StepRow({ number, step }: { number: number; step: FillUpStep }) {
       </div>
       <div className="text-right">
         <div className="text-2xl font-semibold tabular-nums">{step.addedBar.toFixed(1)}</div>
-        <div className="text-muted-foreground text-xs">bar added</div>
+        <div className="text-muted-foreground text-xs">{unitCaption}</div>
       </div>
     </li>
   );
