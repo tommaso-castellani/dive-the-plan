@@ -13,11 +13,7 @@ import {
   Wind,
 } from 'lucide-react';
 
-import {
-  type FillFirstGas,
-  type FillUpResult,
-  calculateFillUp,
-} from '@/lib/gas-planner/mixer';
+import { type FillFirstGas, type FillUpResult, calculateFillUp } from '@/lib/gas-mixer/mixer';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

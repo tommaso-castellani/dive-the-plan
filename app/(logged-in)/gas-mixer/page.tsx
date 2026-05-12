@@ -2,14 +2,14 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { FillUpTab } from './fill-up-tab';
-import { TopUpTab } from './top-up-tab';
+import { FillUpTab } from './components/fill-up-tab';
+import { TopUpTab } from './components/top-up-tab';
 
-export function GasMixerSection() {
+export default function GasMixerPage() {
   return (
-    <section className="space-y-6">
+    <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight">Gas Mixer</h2>
+        <h1 className="text-2xl font-bold tracking-tight">Gas Mixer</h1>
         <p className="text-muted-foreground text-sm">
           Plan partial-pressure blends from any starting tank state, or preview the resulting mix
           after a top-up.
@@ -30,6 +30,6 @@ export function GasMixerSection() {
           <TopUpTab />
         </TabsContent>
       </Tabs>
-    </section>
+    </div>
   );
 }

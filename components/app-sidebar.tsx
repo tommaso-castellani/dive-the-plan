@@ -5,7 +5,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Bot, FileText, Gauge, LayoutDashboard, Shield } from 'lucide-react';
+import { Bot, FileText, FlaskConical, Gauge, LayoutDashboard, Shield } from 'lucide-react';
 
 import { useClient } from '@/hooks/use-client';
 import { useUser } from '@/hooks/use-user';
@@ -34,6 +34,11 @@ const NAV_ITEMS = [
     title: 'Gas Planner',
     url: '/gas-planner',
     icon: Gauge,
+  },
+  {
+    title: 'Gas Mixer',
+    url: '/gas-mixer',
+    icon: FlaskConical,
   },
   {
     title: 'Documents',

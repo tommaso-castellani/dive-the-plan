@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Calculator, Droplet, Gauge, Waves, Wind } from 'lucide-react';
 
-import { type TopUpResult, calculateTopUp } from '@/lib/gas-planner/mixer';
+import { type TopUpResult, calculateTopUp } from '@/lib/gas-mixer/mixer';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
