@@ -39,9 +39,9 @@ interface MixerGasFractions {
 // ---------------------------------------------------------------------------
 
 /** Van der Waals attraction parameter `a` (bar·L²·mol⁻²) per gas. */
-const VDW_A = { O2: 1.382, He: 0.0346, N2: 1.370 } as const;
+const VDW_A = { O2: 1.382, He: 0.0346, N2: 1.37 } as const;
 /** Van der Waals excluded-volume parameter `b` (L·mol⁻¹) per gas. */
-const VDW_B = { O2: 0.03186, He: 0.02380, N2: 0.03870 } as const;
+const VDW_B = { O2: 0.03186, He: 0.0238, N2: 0.0387 } as const;
 /** Gas constant in L·bar·mol⁻¹·K⁻¹. */
 const R_GAS = 0.0831446;
 
@@ -86,13 +86,7 @@ function pressureFromDensity(
  * Molar density (mol/L) from pressure (bar), temperature (K), and mix.
  * Solves the VdW equation by Newton iteration, seeded with the ideal-gas value.
  */
-function densityFromPressure(
-  P: number,
-  T: number,
-  fO2: number,
-  fHe: number,
-  fN2: number
-): number {
+function densityFromPressure(P: number, T: number, fO2: number, fHe: number, fN2: number): number {
   if (P <= 0) return 0;
   const a = mixA(fO2, fHe, fN2);
   const b = mixB(fO2, fHe, fN2);
