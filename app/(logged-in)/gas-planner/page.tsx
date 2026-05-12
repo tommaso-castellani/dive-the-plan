@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { BestMixTab } from './components/best-mix-tab';
 import { GasCheckTab } from './components/gas-check-tab';
+import { GasMixerSection } from './components/gas-mixer-section';
 import { ModCheckTab } from './components/mod-check-tab';
 
 export default function GasPlannerPage() {
@@ -56,6 +57,8 @@ export default function GasPlannerPage() {
           <ModCheckTab key={mode} mode={mode} />
         </TabsContent>
       </Tabs>
+
+      <GasMixerSection />
     </div>
   );
 }
