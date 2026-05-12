@@ -9,6 +9,7 @@ import {
   type GasCheckResult,
   calculateGasCheck,
 } from '@/lib/gas-planner/calculations';
+import { GAS_PLANNER_DEFAULTS } from '@/lib/gas-planner/defaults';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,19 +18,6 @@ import { Slider } from '@/components/ui/slider';
 
 import { NumberField } from './number-field';
 
-const DEFAULTS = {
-  OC: {
-    depth: 40,
-    o2Percent: 32,
-    hePercent: 0,
-  },
-  CCR: {
-    depth: 70,
-    o2Percent: 18,
-    hePercent: 45,
-  },
-};
-
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
 
@@ -37,25 +25,23 @@ interface GasCheckTabProps {
   mode: DivingMode;
 }
 
-// Note: this component is remounted by the parent when `mode` changes (via
-// `key={mode}`), so initial state derived from `DEFAULTS[mode]` is sufficient
-// to keep inputs in sync with the selected mode — no effect needed.
+// Gas (O₂/He) and depth are intentionally left empty (NaN) — they're
+// dive-specific and must be entered by the user before calculating.
 export function GasCheckTab({ mode }: GasCheckTabProps) {
-  const [depth, setDepth] = useState<number>(DEFAULTS[mode].depth);
-  const [o2Percent, setO2Percent] = useState<number>(DEFAULTS[mode].o2Percent);
-  const [hePercent, setHePercent] = useState<number>(DEFAULTS[mode].hePercent);
-  const [waterTemp, setWaterTemp] = useState<number>(20);
+  const [depth, setDepth] = useState<number>(NaN);
+  const [o2Percent, setO2Percent] = useState<number>(NaN);
+  const [hePercent, setHePercent] = useState<number>(NaN);
+  const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<GasCheckResult | null>(null);
 
-  // Live N2 readout — clamp to non-negative so users get instant feedback if
-  // they accidentally enter O2 + He > 100.
-  const n2Percent = Math.max(0, 100 - o2Percent - hePercent);
-  // Treat empty (NaN) O2/He fields as "incomplete" rather than "invalid mix" so
-  // the message reflects what the user actually did.
-  const hasMixInputs = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
+  // Live N2 readout — only meaningful once both gas fractions are entered.
+  // Treat empty (NaN) O₂/He fields as "incomplete" rather than "invalid mix"
+  // so the message reflects what the user actually did.
+  const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
+  const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
   const isMixInvalid =
-    hasMixInputs && (o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0);
-  const canCalculate = hasMixInputs && !isMixInvalid && Number.isFinite(depth);
+    gasEntered && (o2Percent + hePercent > 100 || o2Percent < 0 || hePercent < 0);
+  const canCalculate = gasEntered && !isMixInvalid && Number.isFinite(depth);
 
   const handleCalculate = () => {
     if (!canCalculate) return;
@@ -115,7 +101,7 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
             <span
               className={`font-mono text-sm tabular-nums ${isMixInvalid ? 'text-destructive' : ''}`}
             >
-              {!hasMixInputs ? '—' : isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
+              {!gasEntered ? '—' : isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
             </span>
           </div>
 

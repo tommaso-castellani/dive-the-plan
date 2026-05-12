@@ -10,6 +10,7 @@ import {
   type MODLimiter,
   calculateMODCheck,
 } from '@/lib/gas-planner/calculations';
+import { GAS_PLANNER_DEFAULTS, defaultPpO2 } from '@/lib/gas-planner/defaults';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -19,15 +20,6 @@ import { Slider } from '@/components/ui/slider';
 
 import { NumberField } from './number-field';
 
-const DEFAULTS = {
-  o2Percent: 21,
-  hePercent: 35,
-  targetPpO2: 1.4,
-  targetEND: 30,
-  targetDensity: 5.2,
-  waterTemp: 20,
-};
-
 const TEMP_MIN = 0;
 const TEMP_MAX = 32;
 
@@ -35,21 +27,23 @@ interface ModCheckTabProps {
   mode: DivingMode;
 }
 
+// Gas (O₂/He) is intentionally left empty (NaN) — must be entered by the
+// user. The component is remounted by the parent on mode change (via
+// `key={mode}`), so mode-aware defaults pick the right ppO₂ on mount.
 export function ModCheckTab({ mode }: ModCheckTabProps) {
-  const [o2Percent, setO2Percent] = useState<number>(DEFAULTS.o2Percent);
-  const [hePercent, setHePercent] = useState<number>(DEFAULTS.hePercent);
-  const [targetPpO2, setTargetPpO2] = useState<number>(DEFAULTS.targetPpO2);
-  const [targetEND, setTargetEND] = useState<number>(DEFAULTS.targetEND);
-  const [targetDensity, setTargetDensity] = useState<number>(DEFAULTS.targetDensity);
-  const [waterTemp, setWaterTemp] = useState<number>(DEFAULTS.waterTemp);
+  const [o2Percent, setO2Percent] = useState<number>(NaN);
+  const [hePercent, setHePercent] = useState<number>(NaN);
+  const [targetPpO2, setTargetPpO2] = useState<number>(defaultPpO2(mode));
+  const [targetEND, setTargetEND] = useState<number>(GAS_PLANNER_DEFAULTS.targetEND);
+  const [targetDensity, setTargetDensity] = useState<number>(GAS_PLANNER_DEFAULTS.maxDensity);
+  const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<MODCheckResult | null>(null);
 
-  const n2Percent = Math.max(0, 100 - o2Percent - hePercent);
   // Distinguish "empty input" from "explicitly invalid mix" so the readout is
   // honest while the user is still filling fields in.
-  const hasMixInputs = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
-  const mixIsValid =
-    hasMixInputs && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
+  const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
+  const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
+  const mixIsValid = gasEntered && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
   const canCalculate =
     mixIsValid &&
     Number.isFinite(targetPpO2) &&
@@ -112,10 +106,10 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
               <span
                 className={cn(
                   'font-mono tabular-nums',
-                  hasMixInputs && !mixIsValid && 'text-destructive font-semibold'
+                  gasEntered && !mixIsValid && 'text-destructive font-semibold'
                 )}
               >
-                {!hasMixInputs
+                {!gasEntered
                   ? '—'
                   : mixIsValid
                     ? `${n2Percent.toFixed(1)}%`
