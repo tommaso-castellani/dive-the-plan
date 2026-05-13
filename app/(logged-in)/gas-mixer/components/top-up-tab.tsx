@@ -200,7 +200,7 @@ export function TopUpTab() {
       </div>
 
       {/* Results column */}
-      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
         <ColumnHeader
           title="Resulting Mix"
           description="The composition of the cylinder after topping up to your final pressure."
@@ -224,13 +224,7 @@ function ColumnHeader({ title, description }: { title: string; description?: str
   );
 }
 
-function SubSectionLabel({
-  children,
-  hint,
-}: {
-  children: React.ReactNode;
-  hint?: string;
-}) {
+function SubSectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div className="space-y-1">
       <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">

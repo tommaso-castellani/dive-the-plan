@@ -59,10 +59,7 @@ export function BestMixTab({ mode }: BestMixTabProps) {
     <div className="grid gap-x-12 gap-y-10 lg:grid-cols-5">
       {/* Inputs column */}
       <div className="space-y-8 lg:col-span-2">
-        <ColumnHeader
-          title="Parameters"
-          description="Set your dive profile to compute the mix."
-        />
+        <ColumnHeader title="Parameters" description="Set your dive profile to compute the mix." />
 
         <div className="space-y-5">
           <NumberField
@@ -125,11 +122,8 @@ export function BestMixTab({ mode }: BestMixTabProps) {
       </div>
 
       {/* Results column */}
-      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
-        <ColumnHeader
-          title="Best Mix"
-          description="Optimal blend and operational depth limits."
-        />
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
+        <ColumnHeader title="Best Mix" description="Optimal blend and operational depth limits." />
         {result ? <ResultsView result={result} /> : <ResultsEmpty />}
       </div>
     </div>
@@ -149,13 +143,7 @@ function ColumnHeader({ title, description }: { title: string; description?: str
   );
 }
 
-function TemperatureSlider({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function TemperatureSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">

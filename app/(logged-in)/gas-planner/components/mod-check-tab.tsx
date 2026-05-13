@@ -146,7 +146,7 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
       </div>
 
       {/* Results column */}
-      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
         <ColumnHeader
           title="MOD Check"
           description="Maximum operating depth from each limit. The smallest is the binding one."
@@ -207,13 +207,7 @@ function N2Readout({
   );
 }
 
-function TemperatureSlider({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function TemperatureSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -257,9 +251,7 @@ const LIMITER_LABEL: Record<MODLimiter, string> = {
 };
 
 function ResultsView({ result }: { result: MODCheckResult }) {
-  const limitingDisplay = Number.isFinite(result.limitingMOD)
-    ? result.limitingMOD.toFixed(0)
-    : '—';
+  const limitingDisplay = Number.isFinite(result.limitingMOD) ? result.limitingMOD.toFixed(0) : '—';
 
   return (
     <div className="space-y-10">
@@ -270,7 +262,7 @@ function ResultsView({ result }: { result: MODCheckResult }) {
           Limiting MOD
         </p>
         <div className="flex items-baseline gap-2">
-          <span className="font-mono text-5xl font-semibold tabular-nums leading-none">
+          <span className="font-mono text-5xl leading-none font-semibold tabular-nums">
             {limitingDisplay}
           </span>
           <span className="text-muted-foreground text-xl font-medium">m</span>

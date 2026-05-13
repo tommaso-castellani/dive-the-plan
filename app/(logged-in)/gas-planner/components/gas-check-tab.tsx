@@ -112,7 +112,7 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
       </div>
 
       {/* Results column */}
-      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
         <ColumnHeader
           title="At Depth"
           description="Operational metrics for the entered blend at the target depth."
@@ -172,13 +172,7 @@ function N2Readout({
   );
 }
 
-function TemperatureSlider({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function TemperatureSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -314,9 +308,7 @@ function Metric({ icon, label, value, unit, secondary }: MetricProps) {
       </div>
       <p className="flex items-baseline gap-1 font-mono text-2xl font-semibold tabular-nums">
         {value}
-        {unit && (
-          <span className="text-muted-foreground text-sm font-medium">{unit}</span>
-        )}
+        {unit && <span className="text-muted-foreground text-sm font-medium">{unit}</span>}
       </p>
       {secondary && <p className="text-muted-foreground text-[11px]">{secondary}</p>}
     </div>

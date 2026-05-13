@@ -294,10 +294,7 @@ export function FillUpTab() {
           {/* Ambient temperature */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label
-                htmlFor="ambient-temp"
-                className="flex items-center gap-2 text-sm font-medium"
-              >
+              <Label htmlFor="ambient-temp" className="flex items-center gap-2 text-sm font-medium">
                 <Thermometer className="h-4 w-4" />
                 Ambient Temperature
               </Label>
@@ -327,7 +324,7 @@ export function FillUpTab() {
       </div>
 
       {/* Results column */}
-      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
         <ColumnHeader
           title="Fill Steps"
           description="Add the gases in order. Watch the gauge reach each target pressure before switching."
@@ -351,13 +348,7 @@ function ColumnHeader({ title, description }: { title: string; description?: str
   );
 }
 
-function SubSectionLabel({
-  children,
-  hint,
-}: {
-  children: React.ReactNode;
-  hint?: string;
-}) {
+function SubSectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div className="space-y-1">
       <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
@@ -417,8 +408,8 @@ function ResultsView({ result, ambientTemp }: { result: FillUpResult; ambientTem
       <div className="text-muted-foreground flex items-start gap-2 text-xs">
         <Thermometer className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Gauge targets assume tank at thermal equilibrium near {ambientTemp}°C. Allow gases to
-          cool between stages.
+          Gauge targets assume tank at thermal equilibrium near {ambientTemp}°C. Allow gases to cool
+          between stages.
         </span>
       </div>
     </div>
