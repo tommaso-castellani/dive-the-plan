@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 
 import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 
@@ -38,8 +37,6 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
   const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<MODCheckResult | null>(null);
 
-  // Distinguish "empty input" from "explicitly invalid mix" so the readout is
-  // honest while the user is still filling fields in.
   const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
   const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
   const mixIsValid = gasEntered && o2Percent >= 0 && hePercent >= 0 && o2Percent + hePercent <= 100;
@@ -63,60 +60,45 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Inputs */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Parameters</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Enter your gas and the limits you want to check against.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Gas mix */}
-          <div className="space-y-3">
-            <Label className="text-muted-foreground text-xs tracking-wide uppercase">Gas Mix</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField
-                id="o2"
-                icon={<Droplet className="h-4 w-4" />}
-                label="O₂"
-                unit="%"
-                value={o2Percent}
-                min={0}
-                max={100}
-                step={1}
-                onChange={setO2Percent}
-              />
-              <NumberField
-                id="he"
-                icon={<Wind className="h-4 w-4" />}
-                label="He"
-                unit="%"
-                value={hePercent}
-                min={0}
-                max={100}
-                step={1}
-                onChange={setHePercent}
-              />
-            </div>
-            <div className="text-muted-foreground flex items-center justify-between text-xs">
-              <span>Balance N₂</span>
-              <span
-                className={cn(
-                  'font-mono tabular-nums',
-                  gasEntered && !mixIsValid && 'text-destructive font-semibold'
-                )}
-              >
-                {!gasEntered
-                  ? '—'
-                  : mixIsValid
-                    ? `${n2Percent.toFixed(1)}%`
-                    : 'O₂ + He exceeds 100%'}
-              </span>
-            </div>
-          </div>
+    <div className="grid gap-x-12 gap-y-10 lg:grid-cols-5">
+      {/* Inputs column */}
+      <div className="space-y-8 lg:col-span-2">
+        <ColumnHeader
+          title="Parameters"
+          description="Enter your gas and the limits you want to check against."
+        />
 
+        {/* Gas mix */}
+        <section className="space-y-4">
+          <SubSectionLabel>Gas Mix</SubSectionLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField
+              id="o2"
+              icon={<Droplet className="h-4 w-4" />}
+              label="O₂"
+              unit="%"
+              value={o2Percent}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setO2Percent}
+            />
+            <NumberField
+              id="he"
+              icon={<Wind className="h-4 w-4" />}
+              label="He"
+              unit="%"
+              value={hePercent}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setHePercent}
+            />
+          </div>
+          <N2Readout entered={gasEntered} mixIsValid={mixIsValid} value={n2Percent} />
+        </section>
+
+        <div className="space-y-5">
           {/* Target ppO2 / Setpoint — copy switches by mode */}
           <NumberField
             id="target-ppo2"
@@ -130,7 +112,6 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
             onChange={setTargetPpO2}
           />
 
-          {/* Target END */}
           <NumberField
             id="target-end"
             icon={<Waves className="h-4 w-4" />}
@@ -143,7 +124,6 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
             onChange={setTargetEND}
           />
 
-          {/* Target density */}
           <NumberField
             id="target-density"
             icon={<Wind className="h-4 w-4" />}
@@ -156,46 +136,23 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
             onChange={setTargetDensity}
           />
 
-          {/* Water temperature */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
-                <Thermometer className="h-4 w-4" />
-                Water Temperature
-              </Label>
-              <span className="text-muted-foreground font-mono text-sm">{waterTemp}°C</span>
-            </div>
-            <Slider
-              id="water-temp"
-              value={[waterTemp]}
-              onValueChange={(values) => setWaterTemp(values[0])}
-              min={TEMP_MIN}
-              max={TEMP_MAX}
-              step={1}
-            />
-            <div className="text-muted-foreground flex justify-between text-xs">
-              <span>{TEMP_MIN}°C</span>
-              <span>{TEMP_MAX}°C</span>
-            </div>
-          </div>
+          <TemperatureSlider value={waterTemp} onChange={setWaterTemp} />
+        </div>
 
-          <Button onClick={handleCalculate} disabled={!canCalculate} className="w-full" size="lg">
-            <Calculator className="h-4 w-4" />
-            Calculate
-          </Button>
-        </CardContent>
-      </Card>
+        <Button onClick={handleCalculate} disabled={!canCalculate} className="w-full" size="lg">
+          <Calculator className="h-4 w-4" />
+          Calculate
+        </Button>
+      </div>
 
-      {/* Results */}
-      <Card className="lg:col-span-3">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">MOD Check</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Maximum operating depth from each limit. The smallest is the binding one.
-          </p>
-        </CardHeader>
-        <CardContent>{result ? <ResultsView result={result} /> : <ResultsEmpty />}</CardContent>
-      </Card>
+      {/* Results column */}
+      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+        <ColumnHeader
+          title="MOD Check"
+          description="Maximum operating depth from each limit. The smallest is the binding one."
+        />
+        {result ? <ResultsView result={result} /> : <ResultsEmpty />}
+      </div>
     </div>
   );
 }
@@ -204,9 +161,87 @@ export function ModCheckTab({ mode }: ModCheckTabProps) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ColumnHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="space-y-1">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="text-muted-foreground text-xs">{description}</p>}
+    </header>
+  );
+}
+
+function SubSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
+      {children}
+    </p>
+  );
+}
+
+function N2Readout({
+  entered,
+  mixIsValid,
+  value,
+}: {
+  entered: boolean;
+  mixIsValid: boolean;
+  value: number;
+}) {
+  const invalid = entered && !mixIsValid;
+  const display = !entered ? '—' : invalid ? 'O₂ + He exceeds 100%' : `${value.toFixed(1)}%`;
+  return (
+    <div className="border-border/60 flex items-baseline justify-between border-t pt-2.5">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <Waves className="h-3.5 w-3.5" />
+        <span>N₂ balance</span>
+      </div>
+      <span
+        className={cn(
+          'font-mono text-sm tabular-nums',
+          invalid ? 'text-destructive' : entered ? 'text-foreground' : 'text-muted-foreground'
+        )}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
+function TemperatureSlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
+          <Thermometer className="h-4 w-4" />
+          Water Temperature
+        </Label>
+        <span className="text-muted-foreground font-mono text-sm tabular-nums">{value}°C</span>
+      </div>
+      <Slider
+        id="water-temp"
+        value={[value]}
+        onValueChange={(values) => onChange(values[0])}
+        min={TEMP_MIN}
+        max={TEMP_MAX}
+        step={1}
+      />
+      <div className="text-muted-foreground flex justify-between text-xs">
+        <span>{TEMP_MIN}°C</span>
+        <span>{TEMP_MAX}°C</span>
+      </div>
+    </div>
+  );
+}
+
 function ResultsEmpty() {
   return (
-    <div className="text-muted-foreground flex h-64 flex-col items-center justify-center text-center">
+    <div className="text-muted-foreground flex h-64 flex-col items-start justify-center">
       <p className="text-sm">Enter your gas and limits, then press Calculate.</p>
       <p className="mt-1 text-xs">
         We&apos;ll show the MOD imposed by ppO₂, END and density — the smallest one wins.
@@ -223,44 +258,47 @@ const LIMITER_LABEL: Record<MODLimiter, string> = {
 
 function ResultsView({ result }: { result: MODCheckResult }) {
   const limitingDisplay = Number.isFinite(result.limitingMOD)
-    ? `${result.limitingMOD.toFixed(0)} m`
+    ? result.limitingMOD.toFixed(0)
     : '—';
 
   return (
-    <div className="space-y-8">
-      {/* Headline limiting MOD */}
-      <div className="bg-muted/40 flex items-start gap-4 rounded-md p-5">
-        <AlertTriangle className="text-chart-3 mt-0.5 h-5 w-5 shrink-0" />
-        <div className="space-y-1">
-          <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-            Limiting MOD
-          </p>
-          <p className="text-3xl font-semibold tabular-nums">{limitingDisplay}</p>
-          <p className="text-muted-foreground text-sm">
-            This blend is constrained by{' '}
-            <span className="text-foreground font-medium">{LIMITER_LABEL[result.limiter]}</span> at
-            the depth above.
-          </p>
+    <div className="space-y-10">
+      {/* Headline limiting MOD — typography-led, no tinted block. */}
+      <div className="space-y-3">
+        <p className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium tracking-[0.08em] uppercase">
+          <AlertTriangle className="text-chart-3 h-3.5 w-3.5" />
+          Limiting MOD
+        </p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-5xl font-semibold tabular-nums leading-none">
+            {limitingDisplay}
+          </span>
+          <span className="text-muted-foreground text-xl font-medium">m</span>
         </div>
+        <p className="text-muted-foreground text-sm">
+          This blend is constrained by{' '}
+          <span className="text-foreground font-medium">{LIMITER_LABEL[result.limiter]}</span> at
+          the depth above.
+        </p>
       </div>
 
       {/* Per-limit breakdown */}
-      <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+      <div className="border-border/60 space-y-5 border-t pt-6">
+        <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
           Per-limit Maximum Operating Depth
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MODCard
+        <div className="grid gap-x-6 gap-y-6 sm:grid-cols-3">
+          <ModBlock
             label="MOD by ppO₂"
             value={result.modByPpO2}
             isLimiter={result.limiter === 'ppO2'}
           />
-          <MODCard
+          <ModBlock
             label="MOD by END"
             value={result.modByEND}
             isLimiter={result.limiter === 'END'}
           />
-          <MODCard
+          <ModBlock
             label="MOD by Density"
             value={result.modByDensity}
             isLimiter={result.limiter === 'density'}
@@ -271,31 +309,41 @@ function ResultsView({ result }: { result: MODCheckResult }) {
   );
 }
 
-interface MODCardProps {
+interface ModBlockProps {
   label: string;
   value: number;
   isLimiter: boolean;
 }
 
-function MODCard({ label, value, isLimiter }: MODCardProps) {
-  const display = Number.isFinite(value) ? `${value.toFixed(0)} m` : '—';
+function ModBlock({ label, value, isLimiter }: ModBlockProps) {
+  const display = Number.isFinite(value) ? value.toFixed(0) : '—';
   return (
-    <div
-      className={cn(
-        'rounded-md p-4 transition-colors',
-        isLimiter ? 'bg-primary/10 border-primary/40 border' : 'bg-muted/40'
-      )}
-    >
-      <div className="flex items-center justify-between">
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs">{label}</p>
         {isLimiter && (
-          <span className="text-primary text-[10px] font-semibold tracking-wide uppercase">
+          <span className="text-primary text-[10px] font-medium tracking-[0.08em] uppercase">
             Limiting
           </span>
         )}
       </div>
-      <p className={cn('mt-1 text-2xl font-semibold tabular-nums', isLimiter && 'text-primary')}>
+      <p
+        className={cn(
+          'flex items-baseline gap-1 font-mono text-2xl font-semibold tabular-nums',
+          isLimiter && 'text-primary'
+        )}
+      >
         {display}
+        {Number.isFinite(value) && (
+          <span
+            className={cn(
+              'text-sm font-medium',
+              isLimiter ? 'text-primary/80' : 'text-muted-foreground'
+            )}
+          >
+            m
+          </span>
+        )}
       </p>
     </div>
   );

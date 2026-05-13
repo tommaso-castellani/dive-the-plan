@@ -5,10 +5,10 @@ import { useState } from 'react';
 import { Calculator, Droplet, Gauge, Waves, Wind } from 'lucide-react';
 
 import { type TopUpResult, calculateTopUp } from '@/lib/gas-mixer/mixer';
+import { cn } from '@/lib/utils';
 
 import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 type TopUpPreset = '21' | '32' | 'custom';
@@ -45,7 +45,6 @@ export function TopUpTab() {
   const isTopUpMixInvalid = topUpO2Percent + topUpHePercent > 100;
   const isPressureInvalid = endPressure <= startPressure;
 
-  // Treat empty/unparseable fields (NaN) as incomplete so we don't compute on them.
   const hasMissingValue =
     !Number.isFinite(startPressure) ||
     !Number.isFinite(startO2Percent) ||
@@ -72,147 +71,142 @@ export function TopUpTab() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Inputs */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Top-Up</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Adding a known gas on top of the existing mix — see the resulting blend.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {/* Current tank */}
-          <section className="space-y-4">
-            <SubSection title="In The Tank" hint="What's already in the cylinder." />
+    <div className="grid gap-x-12 gap-y-10 lg:grid-cols-5">
+      {/* Inputs column */}
+      <div className="space-y-8 lg:col-span-2">
+        <ColumnHeader
+          title="Top-Up"
+          description="Adding a known gas on top of the existing mix — see the resulting blend."
+        />
+
+        {/* Current tank */}
+        <section className="space-y-4">
+          <SubSectionLabel hint="What's already in the cylinder.">In The Tank</SubSectionLabel>
+          <NumberField
+            id="topup-start-pressure"
+            icon={<Gauge className="h-4 w-4" />}
+            label="Initial Pressure"
+            unit="bar"
+            value={startPressure}
+            min={0}
+            max={400}
+            step={1}
+            onChange={setStartPressure}
+          />
+          <div className="grid grid-cols-2 gap-3">
             <NumberField
-              id="topup-start-pressure"
-              icon={<Gauge className="h-4 w-4" />}
-              label="Initial Pressure"
-              unit="bar"
-              value={startPressure}
+              id="topup-start-o2"
+              icon={<Droplet className="h-4 w-4" />}
+              label="O₂"
+              unit="%"
+              value={startO2Percent}
               min={0}
-              max={400}
+              max={100}
               step={1}
-              onChange={setStartPressure}
+              onChange={setStartO2Percent}
             />
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField
-                id="topup-start-o2"
-                icon={<Droplet className="h-4 w-4" />}
-                label="O₂"
-                unit="%"
-                value={startO2Percent}
-                min={0}
-                max={100}
-                step={1}
-                onChange={setStartO2Percent}
-              />
-              <NumberField
-                id="topup-start-he"
-                icon={<Wind className="h-4 w-4" />}
-                label="He"
-                unit="%"
-                value={startHePercent}
-                min={0}
-                max={100}
-                step={1}
-                onChange={setStartHePercent}
-              />
+            <NumberField
+              id="topup-start-he"
+              icon={<Wind className="h-4 w-4" />}
+              label="He"
+              unit="%"
+              value={startHePercent}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setStartHePercent}
+            />
+          </div>
+          <N2Readout value={startN2} invalid={isStartMixInvalid} />
+        </section>
+
+        {/* Top-up gas */}
+        <section className="space-y-4">
+          <SubSectionLabel>Top-Up Gas</SubSectionLabel>
+          <ToggleGroup
+            type="single"
+            value={topUpPreset}
+            onValueChange={(value) => {
+              if (value === '21' || value === '32' || value === 'custom') {
+                setTopUpPreset(value);
+              }
+            }}
+            variant="outline"
+            className="w-full"
+          >
+            <ToggleGroupItem value="21" className="flex-1">
+              Air 21
+            </ToggleGroupItem>
+            <ToggleGroupItem value="32" className="flex-1">
+              EAN 32
+            </ToggleGroupItem>
+            <ToggleGroupItem value="custom" className="flex-1">
+              Custom
+            </ToggleGroupItem>
+          </ToggleGroup>
+
+          {topUpPreset === 'custom' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField
+                  id="topup-gas-o2"
+                  icon={<Droplet className="h-4 w-4" />}
+                  label="Top-up O₂"
+                  unit="%"
+                  value={customTopUpO2Percent}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onChange={setCustomTopUpO2Percent}
+                />
+                <NumberField
+                  id="topup-gas-he"
+                  icon={<Wind className="h-4 w-4" />}
+                  label="Top-up He"
+                  unit="%"
+                  value={customTopUpHePercent}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onChange={setCustomTopUpHePercent}
+                />
+              </div>
+              <N2Readout value={topUpN2} invalid={isTopUpMixInvalid} />
             </div>
-            <N2Readout value={startN2} invalid={isStartMixInvalid} />
-          </section>
+          )}
 
-          {/* Top-up gas */}
-          <section className="space-y-4">
-            <SubSection title="Top-Up Gas" />
-            <ToggleGroup
-              type="single"
-              value={topUpPreset}
-              onValueChange={(value) => {
-                if (value === '21' || value === '32' || value === 'custom') {
-                  setTopUpPreset(value);
-                }
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              <ToggleGroupItem value="21" className="flex-1">
-                Air 21
-              </ToggleGroupItem>
-              <ToggleGroupItem value="32" className="flex-1">
-                EAN 32
-              </ToggleGroupItem>
-              <ToggleGroupItem value="custom" className="flex-1">
-                Custom
-              </ToggleGroupItem>
-            </ToggleGroup>
+          <NumberField
+            id="topup-end-pressure"
+            icon={<Gauge className="h-4 w-4" />}
+            label="Final Pressure"
+            unit="bar"
+            value={endPressure}
+            min={0}
+            max={400}
+            step={1}
+            onChange={setEndPressure}
+          />
+          {isPressureInvalid && (
+            <p className="text-destructive text-xs">
+              Final pressure must be greater than the starting pressure.
+            </p>
+          )}
+        </section>
 
-            {topUpPreset === 'custom' && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <NumberField
-                    id="topup-gas-o2"
-                    icon={<Droplet className="h-4 w-4" />}
-                    label="Top-up O₂"
-                    unit="%"
-                    value={customTopUpO2Percent}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onChange={setCustomTopUpO2Percent}
-                  />
-                  <NumberField
-                    id="topup-gas-he"
-                    icon={<Wind className="h-4 w-4" />}
-                    label="Top-up He"
-                    unit="%"
-                    value={customTopUpHePercent}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onChange={setCustomTopUpHePercent}
-                  />
-                </div>
-                <N2Readout value={topUpN2} invalid={isTopUpMixInvalid} />
-              </>
-            )}
+        <Button onClick={handleCalculate} className="w-full" size="lg" disabled={hasInputError}>
+          <Calculator className="h-4 w-4" />
+          Calculate Final Mix
+        </Button>
+      </div>
 
-            <NumberField
-              id="topup-end-pressure"
-              icon={<Gauge className="h-4 w-4" />}
-              label="Final Pressure"
-              unit="bar"
-              value={endPressure}
-              min={0}
-              max={400}
-              step={1}
-              onChange={setEndPressure}
-            />
-            {isPressureInvalid && (
-              <p className="text-destructive text-xs">
-                Final pressure must be greater than the starting pressure.
-              </p>
-            )}
-          </section>
-
-          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={hasInputError}>
-            <Calculator className="h-4 w-4" />
-            Calculate Final Mix
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Results */}
-      <Card className="lg:col-span-3">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Resulting Mix</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            The composition of the cylinder after topping up to your final pressure.
-          </p>
-        </CardHeader>
-        <CardContent>{result ? <ResultsView result={result} /> : <ResultsEmpty />}</CardContent>
-      </Card>
+      {/* Results column */}
+      <div className="space-y-8 lg:col-span-3 lg:border-l lg:border-border/60 lg:pl-12">
+        <ColumnHeader
+          title="Resulting Mix"
+          description="The composition of the cylinder after topping up to your final pressure."
+        />
+        {result ? <ResultsView result={result} /> : <ResultsEmpty />}
+      </div>
     </div>
   );
 }
@@ -221,10 +215,27 @@ export function TopUpTab() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function SubSection({ title, hint }: { title: string; hint?: string }) {
+function ColumnHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="space-y-1">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="text-muted-foreground text-xs">{description}</p>}
+    </header>
+  );
+}
+
+function SubSectionLabel({
+  children,
+  hint,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+}) {
   return (
     <div className="space-y-1">
-      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{title}</p>
+      <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
+        {children}
+      </p>
       {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
     </div>
   );
@@ -232,12 +243,17 @@ function SubSection({ title, hint }: { title: string; hint?: string }) {
 
 function N2Readout({ value, invalid }: { value: number; invalid: boolean }) {
   return (
-    <div className="bg-muted/40 flex items-center justify-between rounded-md px-3 py-2">
-      <div className="flex items-center gap-2 text-sm">
-        <Waves className="text-muted-foreground h-4 w-4" />
-        <span className="text-muted-foreground">N₂ (balance)</span>
+    <div className="border-border/60 flex items-baseline justify-between border-t pt-2.5">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <Waves className="h-3.5 w-3.5" />
+        <span>N₂ balance</span>
       </div>
-      <span className={`font-mono text-sm tabular-nums ${invalid ? 'text-destructive' : ''}`}>
+      <span
+        className={cn(
+          'font-mono text-sm tabular-nums',
+          invalid ? 'text-destructive' : 'text-foreground'
+        )}
+      >
         {invalid ? 'Invalid mix' : `${value.toFixed(0)}%`}
       </span>
     </div>
@@ -246,7 +262,7 @@ function N2Readout({ value, invalid }: { value: number; invalid: boolean }) {
 
 function ResultsEmpty() {
   return (
-    <div className="text-muted-foreground flex h-64 flex-col items-center justify-center text-center">
+    <div className="text-muted-foreground flex h-64 flex-col items-start justify-center">
       <p className="text-sm">Enter the current mix and top-up gas, then press Calculate.</p>
       <p className="mt-1 text-xs">The resulting blend will appear here.</p>
     </div>
@@ -256,9 +272,9 @@ function ResultsEmpty() {
 function ResultsView({ result }: { result: TopUpResult }) {
   if (!result.feasibility.ok) {
     return (
-      <div className="bg-destructive/10 text-destructive flex h-64 flex-col items-center justify-center rounded-md p-6 text-center">
-        <p className="text-sm font-medium">Cannot compute the mix</p>
-        <p className="mt-2 max-w-xs text-xs">{result.feasibility.reason}</p>
+      <div className="flex h-64 flex-col items-start justify-center">
+        <p className="text-destructive text-sm font-medium">Cannot compute the mix</p>
+        <p className="text-muted-foreground mt-2 max-w-md text-xs">{result.feasibility.reason}</p>
       </div>
     );
   }
@@ -266,7 +282,7 @@ function ResultsView({ result }: { result: TopUpResult }) {
   return (
     <div className="space-y-8">
       {/* Final mix */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-3 gap-x-6 sm:gap-x-10">
         <MixStat
           icon={<Droplet className="h-4 w-4" />}
           label="O₂"
@@ -288,11 +304,15 @@ function ResultsView({ result }: { result: TopUpResult }) {
       </div>
 
       {/* Added gas summary */}
-      <div className="bg-muted/40 rounded-md p-4">
-        <p className="text-muted-foreground text-xs">Top-up gas added</p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums">
-          {result.addedBar.toFixed(1)}
-          <span className="text-muted-foreground ml-1 text-sm font-normal">bar</span>
+      <div className="border-border/60 border-t pt-5">
+        <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
+          Top-up gas added
+        </p>
+        <p className="mt-2 flex items-baseline gap-1.5">
+          <span className="font-mono text-3xl font-semibold tabular-nums">
+            {result.addedBar.toFixed(1)}
+          </span>
+          <span className="text-muted-foreground text-sm font-medium">bar</span>
         </p>
       </div>
     </div>
@@ -308,16 +328,18 @@ interface MixStatProps {
 
 function MixStat({ icon, label, value, accent }: MixStatProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         {icon}
         <span>{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-3xl font-semibold tracking-tight tabular-nums ${accent}`}>
+        <span
+          className={cn('font-mono text-3xl font-semibold tracking-tight tabular-nums', accent)}
+        >
           {value.toFixed(1)}
         </span>
-        <span className="text-muted-foreground text-sm">%</span>
+        <span className="text-muted-foreground text-sm font-medium">%</span>
       </div>
     </div>
   );
