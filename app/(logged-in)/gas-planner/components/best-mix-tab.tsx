@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 
 import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 
@@ -37,8 +36,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
   const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<BestMixResult | null>(null);
 
-  // Disable Calculate while any required field is empty / unparseable so we
-  // don't quietly feed NaN into the calculation pipeline.
   const requiredFilled =
     Number.isFinite(depth) &&
     Number.isFinite(ppO2) &&
@@ -59,15 +56,12 @@ export function BestMixTab({ mode }: BestMixTabProps) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Inputs */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Parameters</CardTitle>
-          <p className="text-muted-foreground text-sm">Set your dive profile to compute the mix.</p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Depth */}
+    <div className="grid gap-x-12 gap-y-10 lg:grid-cols-5">
+      {/* Inputs column */}
+      <div className="space-y-8 lg:col-span-2">
+        <ColumnHeader title="Parameters" description="Set your dive profile to compute the mix." />
+
+        <div className="space-y-5">
           <NumberField
             id="depth"
             icon={<Mountain className="h-4 w-4" />}
@@ -80,7 +74,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             onChange={setDepth}
           />
 
-          {/* ppO2 — meaning differs by mode */}
           <NumberField
             id="ppo2"
             icon={<Gauge className="h-4 w-4" />}
@@ -93,7 +86,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             onChange={setPpO2}
           />
 
-          {/* Target END */}
           <NumberField
             id="end"
             icon={<Waves className="h-4 w-4" />}
@@ -106,7 +98,6 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             onChange={setTargetEND}
           />
 
-          {/* Max density (CCR only, per spec) */}
           {mode === 'CCR' && (
             <NumberField
               id="density"
@@ -121,46 +112,20 @@ export function BestMixTab({ mode }: BestMixTabProps) {
             />
           )}
 
-          {/* Water temperature slider */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
-                <Thermometer className="h-4 w-4" />
-                Water Temperature
-              </Label>
-              <span className="text-muted-foreground font-mono text-sm">{waterTemp}°C</span>
-            </div>
-            <Slider
-              id="water-temp"
-              value={[waterTemp]}
-              onValueChange={(values) => setWaterTemp(values[0])}
-              min={TEMP_MIN}
-              max={TEMP_MAX}
-              step={1}
-            />
-            <div className="text-muted-foreground flex justify-between text-xs">
-              <span>{TEMP_MIN}°C</span>
-              <span>{TEMP_MAX}°C</span>
-            </div>
-          </div>
+          <TemperatureSlider value={waterTemp} onChange={setWaterTemp} />
+        </div>
 
-          <Button onClick={handleCalculate} disabled={!requiredFilled} className="w-full" size="lg">
-            <Calculator className="h-4 w-4" />
-            Calculate
-          </Button>
-        </CardContent>
-      </Card>
+        <Button onClick={handleCalculate} disabled={!requiredFilled} className="w-full" size="lg">
+          <Calculator className="h-4 w-4" />
+          Calculate
+        </Button>
+      </div>
 
-      {/* Results */}
-      <Card className="lg:col-span-3">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Best Mix</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Optimal blend and operational depth limits.
-          </p>
-        </CardHeader>
-        <CardContent>{result ? <ResultsView result={result} /> : <ResultsEmpty />}</CardContent>
-      </Card>
+      {/* Results column */}
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
+        <ColumnHeader title="Best Mix" description="Optimal blend and operational depth limits." />
+        {result ? <ResultsView result={result} /> : <ResultsEmpty />}
+      </div>
     </div>
   );
 }
@@ -169,9 +134,44 @@ export function BestMixTab({ mode }: BestMixTabProps) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ColumnHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="space-y-1">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="text-muted-foreground text-xs">{description}</p>}
+    </header>
+  );
+}
+
+function TemperatureSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
+          <Thermometer className="h-4 w-4" />
+          Water Temperature
+        </Label>
+        <span className="text-muted-foreground font-mono text-sm tabular-nums">{value}°C</span>
+      </div>
+      <Slider
+        id="water-temp"
+        value={[value]}
+        onValueChange={(values) => onChange(values[0])}
+        min={TEMP_MIN}
+        max={TEMP_MAX}
+        step={1}
+      />
+      <div className="text-muted-foreground flex justify-between text-xs">
+        <span>{TEMP_MIN}°C</span>
+        <span>{TEMP_MAX}°C</span>
+      </div>
+    </div>
+  );
+}
+
 function ResultsEmpty() {
   return (
-    <div className="text-muted-foreground flex h-64 flex-col items-center justify-center text-center">
+    <div className="text-muted-foreground flex h-64 flex-col items-start justify-center">
       <p className="text-sm">Enter your parameters and press Calculate.</p>
       <p className="mt-1 text-xs">The recommended mix and MODs will appear here.</p>
     </div>
@@ -182,7 +182,7 @@ function ResultsView({ result }: { result: BestMixResult }) {
   return (
     <div className="space-y-8">
       {/* Big mix display */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-3 gap-x-6 sm:gap-x-10">
         <MixStat
           icon={<Droplet className="h-4 w-4" />}
           label="O₂"
@@ -204,24 +204,24 @@ function ResultsView({ result }: { result: BestMixResult }) {
       </div>
 
       {/* MOD breakdown */}
-      <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+      <div className="border-border/60 space-y-5 border-t pt-6">
+        <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
           Maximum Operating Depth
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MODCard
+        <div className="grid gap-x-6 gap-y-6 sm:grid-cols-3">
+          <ModBlock
             label="MOD by ppO₂"
             value={result.modByPpO2}
             secondary={`${result.partialPressures.ppO2.toFixed(2)} bar at depth`}
             isLimiter={result.limiter === 'ppO2'}
           />
-          <MODCard
+          <ModBlock
             label="MOD by Density"
             value={result.modByDensity}
             secondary={`${result.densityAtDepth.toFixed(2)} g/L at depth`}
             isLimiter={result.limiter === 'density'}
           />
-          <MODCard
+          <ModBlock
             label="MOD by END"
             value={result.modByEND}
             secondary={`END ${result.endAtDepth.toFixed(0)} m at depth`}
@@ -242,42 +242,61 @@ interface MixStatProps {
 
 function MixStat({ icon, label, value, accent }: MixStatProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         {icon}
         <span>{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-3xl font-semibold tracking-tight tabular-nums ${accent}`}>
+        <span
+          className={cn('font-mono text-3xl font-semibold tracking-tight tabular-nums', accent)}
+        >
           {value.toFixed(1)}
         </span>
-        <span className="text-muted-foreground text-sm">%</span>
+        <span className="text-muted-foreground text-sm font-medium">%</span>
       </div>
     </div>
   );
 }
 
-interface MODCardProps {
+interface ModBlockProps {
   label: string;
   value: number;
   secondary?: string;
   isLimiter: boolean;
 }
 
-function MODCard({ label, value, secondary, isLimiter }: MODCardProps) {
-  const display = Number.isFinite(value) ? `${value.toFixed(0)} m` : '—';
+function ModBlock({ label, value, secondary, isLimiter }: ModBlockProps) {
+  const display = Number.isFinite(value) ? value.toFixed(0) : '—';
   return (
-    <div
-      className={cn(
-        'rounded-md p-4 transition-colors',
-        isLimiter ? 'bg-primary/10 border-primary/40 border' : 'bg-muted/40'
-      )}
-    >
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className={cn('mt-1 text-2xl font-semibold tabular-nums', isLimiter && 'text-primary')}>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-muted-foreground text-xs">{label}</p>
+        {isLimiter && (
+          <span className="text-primary text-[10px] font-medium tracking-[0.08em] uppercase">
+            Limiting
+          </span>
+        )}
+      </div>
+      <p
+        className={cn(
+          'flex items-baseline gap-1 font-mono text-2xl font-semibold tabular-nums',
+          isLimiter && 'text-primary'
+        )}
+      >
         {display}
+        {Number.isFinite(value) && (
+          <span
+            className={cn(
+              'text-sm font-medium',
+              isLimiter ? 'text-primary/80' : 'text-muted-foreground'
+            )}
+          >
+            m
+          </span>
+        )}
       </p>
-      {secondary && <p className="text-muted-foreground mt-1 text-xs">{secondary}</p>}
+      {secondary && <p className="text-muted-foreground text-[11px]">{secondary}</p>}
     </div>
   );
 }

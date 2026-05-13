@@ -10,10 +10,10 @@ import {
   calculateGasCheck,
 } from '@/lib/gas-planner/calculations';
 import { GAS_PLANNER_DEFAULTS } from '@/lib/gas-planner/defaults';
+import { cn } from '@/lib/utils';
 
 import { NumberField } from '@/components/number-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 
@@ -33,9 +33,6 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
   const [waterTemp, setWaterTemp] = useState<number>(GAS_PLANNER_DEFAULTS.waterTemp);
   const [result, setResult] = useState<GasCheckResult | null>(null);
 
-  // Live N2 readout — only meaningful once both gas fractions are entered.
-  // Treat empty (NaN) O₂/He fields as "incomplete" rather than "invalid mix"
-  // so the message reflects what the user actually did.
   const gasEntered = Number.isFinite(o2Percent) && Number.isFinite(hePercent);
   const n2Percent = gasEntered ? Math.max(0, 100 - o2Percent - hePercent) : 0;
   const isMixInvalid =
@@ -55,56 +52,44 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Inputs */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">Gas & Conditions</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Enter your blend, depth, and water temperature.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* O2 */}
-          <NumberField
-            id="o2"
-            icon={<Droplet className="h-4 w-4" />}
-            label="O₂"
-            unit="%"
-            value={o2Percent}
-            min={0}
-            max={100}
-            step={1}
-            onChange={setO2Percent}
-          />
+    <div className="grid gap-x-12 gap-y-10 lg:grid-cols-5">
+      {/* Inputs column */}
+      <div className="space-y-8 lg:col-span-2">
+        <ColumnHeader
+          title="Gas & Conditions"
+          description="Enter your blend, depth, and water temperature."
+        />
 
-          {/* He */}
-          <NumberField
-            id="he"
-            icon={<Wind className="h-4 w-4" />}
-            label="He"
-            unit="%"
-            value={hePercent}
-            min={0}
-            max={100}
-            step={1}
-            onChange={setHePercent}
-          />
-
-          {/* N2 derived readout */}
-          <div className="bg-muted/40 flex items-center justify-between rounded-md px-3 py-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Waves className="text-muted-foreground h-4 w-4" />
-              <span className="text-muted-foreground">N₂ (balance)</span>
-            </div>
-            <span
-              className={`font-mono text-sm tabular-nums ${isMixInvalid ? 'text-destructive' : ''}`}
-            >
-              {!gasEntered ? '—' : isMixInvalid ? 'Invalid mix' : `${n2Percent.toFixed(0)}%`}
-            </span>
+        <section className="space-y-4">
+          <SubSectionLabel>Gas Mix</SubSectionLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField
+              id="o2"
+              icon={<Droplet className="h-4 w-4" />}
+              label="O₂"
+              unit="%"
+              value={o2Percent}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setO2Percent}
+            />
+            <NumberField
+              id="he"
+              icon={<Wind className="h-4 w-4" />}
+              label="He"
+              unit="%"
+              value={hePercent}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setHePercent}
+            />
           </div>
+          <N2Readout entered={gasEntered} invalid={isMixInvalid} value={n2Percent} />
+        </section>
 
-          {/* Depth */}
+        <div className="space-y-5">
           <NumberField
             id="depth"
             icon={<Mountain className="h-4 w-4" />}
@@ -117,48 +102,23 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
             onChange={setDepth}
           />
 
-          {/* Water temperature slider */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
-                <Thermometer className="h-4 w-4" />
-                Water Temperature
-              </Label>
-              <span className="text-muted-foreground font-mono text-sm">{waterTemp}°C</span>
-            </div>
-            <Slider
-              id="water-temp"
-              value={[waterTemp]}
-              onValueChange={(values) => setWaterTemp(values[0])}
-              min={TEMP_MIN}
-              max={TEMP_MAX}
-              step={1}
-            />
-            <div className="text-muted-foreground flex justify-between text-xs">
-              <span>{TEMP_MIN}°C</span>
-              <span>{TEMP_MAX}°C</span>
-            </div>
-          </div>
+          <TemperatureSlider value={waterTemp} onChange={setWaterTemp} />
+        </div>
 
-          <Button onClick={handleCalculate} className="w-full" size="lg" disabled={!canCalculate}>
-            <Calculator className="h-4 w-4" />
-            Calculate
-          </Button>
-        </CardContent>
-      </Card>
+        <Button onClick={handleCalculate} className="w-full" size="lg" disabled={!canCalculate}>
+          <Calculator className="h-4 w-4" />
+          Calculate
+        </Button>
+      </div>
 
-      {/* Results */}
-      <Card className="lg:col-span-3">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-lg">At Depth</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Operational metrics for the entered blend at the target depth.
-          </p>
-        </CardHeader>
-        <CardContent>
-          {result ? <ResultsView result={result} mode={mode} /> : <ResultsEmpty />}
-        </CardContent>
-      </Card>
+      {/* Results column */}
+      <div className="lg:border-border/60 space-y-8 lg:col-span-3 lg:border-l lg:pl-12">
+        <ColumnHeader
+          title="At Depth"
+          description="Operational metrics for the entered blend at the target depth."
+        />
+        {result ? <ResultsView result={result} mode={mode} /> : <ResultsEmpty />}
+      </div>
     </div>
   );
 }
@@ -167,9 +127,80 @@ export function GasCheckTab({ mode }: GasCheckTabProps) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+function ColumnHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="space-y-1">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="text-muted-foreground text-xs">{description}</p>}
+    </header>
+  );
+}
+
+function SubSectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
+      {children}
+    </p>
+  );
+}
+
+function N2Readout({
+  entered,
+  invalid,
+  value,
+}: {
+  entered: boolean;
+  invalid: boolean;
+  value: number;
+}) {
+  const display = !entered ? '—' : invalid ? 'Invalid mix' : `${value.toFixed(0)}%`;
+  return (
+    <div className="border-border/60 flex items-baseline justify-between border-t pt-2.5">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <Waves className="h-3.5 w-3.5" />
+        <span>N₂ balance</span>
+      </div>
+      <span
+        className={cn(
+          'font-mono text-sm tabular-nums',
+          invalid ? 'text-destructive' : entered ? 'text-foreground' : 'text-muted-foreground'
+        )}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
+function TemperatureSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label htmlFor="water-temp" className="flex items-center gap-2 text-sm font-medium">
+          <Thermometer className="h-4 w-4" />
+          Water Temperature
+        </Label>
+        <span className="text-muted-foreground font-mono text-sm tabular-nums">{value}°C</span>
+      </div>
+      <Slider
+        id="water-temp"
+        value={[value]}
+        onValueChange={(values) => onChange(values[0])}
+        min={TEMP_MIN}
+        max={TEMP_MAX}
+        step={1}
+      />
+      <div className="text-muted-foreground flex justify-between text-xs">
+        <span>{TEMP_MIN}°C</span>
+        <span>{TEMP_MAX}°C</span>
+      </div>
+    </div>
+  );
+}
+
 function ResultsEmpty() {
   return (
-    <div className="text-muted-foreground flex h-64 flex-col items-center justify-center text-center">
+    <div className="text-muted-foreground flex h-64 flex-col items-start justify-center">
       <p className="text-sm">Enter your gas and conditions, then press Calculate.</p>
       <p className="mt-1 text-xs">ppO₂, density, and END at depth will appear here.</p>
     </div>
@@ -180,7 +211,7 @@ function ResultsView({ result, mode }: { result: GasCheckResult; mode: DivingMod
   return (
     <div className="space-y-8">
       {/* Mix display */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-3 gap-x-6 sm:gap-x-10">
         <MixStat
           icon={<Droplet className="h-4 w-4" />}
           label="O₂"
@@ -202,27 +233,30 @@ function ResultsView({ result, mode }: { result: GasCheckResult; mode: DivingMod
       </div>
 
       {/* Operational metrics */}
-      <div>
-        <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wide uppercase">
+      <div className="border-border/60 space-y-5 border-t pt-6">
+        <p className="text-muted-foreground text-[11px] font-medium tracking-[0.08em] uppercase">
           At Target Depth
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MetricCard
+        <div className="grid gap-x-6 gap-y-6 sm:grid-cols-3">
+          <Metric
             icon={<Gauge className="h-4 w-4" />}
             label={mode === 'OC' ? 'ppO₂' : 'Diluent ppO₂'}
-            value={`${result.partialPressures.ppO2.toFixed(2)} bar`}
+            value={result.partialPressures.ppO2.toFixed(2)}
+            unit="bar"
             secondary={`ppN₂ ${result.partialPressures.ppN2.toFixed(2)} · ppHe ${result.partialPressures.ppHe.toFixed(2)}`}
           />
-          <MetricCard
+          <Metric
             icon={<Wind className="h-4 w-4" />}
             label="Gas Density"
-            value={`${result.densityAtDepth.toFixed(2)} g/L`}
+            value={result.densityAtDepth.toFixed(2)}
+            unit="g/L"
             secondary="Recommended ≤ 5.2 g/L"
           />
-          <MetricCard
+          <Metric
             icon={<Waves className="h-4 w-4" />}
             label="END"
-            value={`${result.endAtDepth.toFixed(0)} m`}
+            value={result.endAtDepth.toFixed(0)}
+            unit="m"
             secondary="Equivalent Narcotic Depth"
           />
         </div>
@@ -240,37 +274,43 @@ interface MixStatProps {
 
 function MixStat({ icon, label, value, accent }: MixStatProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         {icon}
         <span>{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-3xl font-semibold tracking-tight tabular-nums ${accent}`}>
+        <span
+          className={cn('font-mono text-3xl font-semibold tracking-tight tabular-nums', accent)}
+        >
           {value.toFixed(1)}
         </span>
-        <span className="text-muted-foreground text-sm">%</span>
+        <span className="text-muted-foreground text-sm font-medium">%</span>
       </div>
     </div>
   );
 }
 
-interface MetricCardProps {
+interface MetricProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  unit?: string;
   secondary?: string;
 }
 
-function MetricCard({ icon, label, value, secondary }: MetricCardProps) {
+function Metric({ icon, label, value, unit, secondary }: MetricProps) {
   return (
-    <div className="bg-muted/40 rounded-md p-4">
+    <div className="space-y-1.5">
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         {icon}
         <span>{label}</span>
       </div>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {secondary && <p className="text-muted-foreground mt-1 text-xs">{secondary}</p>}
+      <p className="flex items-baseline gap-1 font-mono text-2xl font-semibold tabular-nums">
+        {value}
+        {unit && <span className="text-muted-foreground text-sm font-medium">{unit}</span>}
+      </p>
+      {secondary && <p className="text-muted-foreground text-[11px]">{secondary}</p>}
     </div>
   );
 }
