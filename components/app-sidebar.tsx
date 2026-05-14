@@ -5,7 +5,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Bot, FileText, Gauge, LayoutDashboard, Shield } from 'lucide-react';
+import { Bot, FileText, Gauge, LayoutDashboard, Shield, Waves } from 'lucide-react';
 
 import { useClient } from '@/hooks/use-client';
 import { useUser } from '@/hooks/use-user';
@@ -25,6 +25,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 const NAV_ITEMS = [
+  {
+    title: 'Dive Planner',
+    url: '/dive-planner',
+    icon: Waves,
+  },
   {
     title: 'Dashboard',
     url: '/dashboard',
