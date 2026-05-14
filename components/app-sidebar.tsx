@@ -5,7 +5,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Bot, FileText, Gauge, LayoutDashboard, Shield, Waves } from 'lucide-react';
+import { Gauge, Shield, Waves } from 'lucide-react';
 
 import { useClient } from '@/hooks/use-client';
 import { useUser } from '@/hooks/use-user';
@@ -31,24 +31,9 @@ const NAV_ITEMS = [
     icon: Waves,
   },
   {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
     title: 'Gas Planner',
     url: '/gas-planner',
     icon: Gauge,
-  },
-  {
-    title: 'Documents',
-    url: '/documents',
-    icon: FileText,
-  },
-  {
-    title: 'Assistant',
-    url: '/assistant',
-    icon: Bot,
   },
 ];
 
